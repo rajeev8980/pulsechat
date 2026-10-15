@@ -36,8 +36,8 @@ export function LandingScreen() {
   const { openGoogleModal } = usePulse();
 
   return (
-    <section className="flex-1 flex flex-col justify-between px-4 sm:px-6 lg:px-12 py-5 max-w-7xl mx-auto w-full animate-in fade-in duration-300">
-      <nav className="flex items-center justify-between py-3 glass-panel px-4 sm:px-6 rounded-2xl shadow-xl">
+    <section className="flex-1 flex flex-col justify-between px-3 sm:px-6 lg:px-12 py-3 sm:py-5 max-w-7xl mx-auto w-full animate-in fade-in duration-300">
+      <nav className="flex items-center justify-between py-2.5 sm:py-3 glass-panel px-3 sm:px-6 rounded-2xl shadow-xl gap-2">
         <div className="flex items-center gap-3">
           <div className="w-10 h-10 rounded-xl pulse-grad flex items-center justify-center shadow-lg shadow-indigo-500/30">
             <FaBolt className="text-white text-lg" />
@@ -56,14 +56,14 @@ export function LandingScreen() {
           <button
             type="button"
             onClick={() => openGoogleModal("signin")}
-            className="text-xs sm:text-sm font-semibold text-slate-300 hover:text-white px-3 sm:px-3.5 py-2 rounded-xl transition hover:bg-white/5 border border-white/10"
+            className="text-xs sm:text-sm font-semibold text-slate-300 hover:text-white px-3 sm:px-3.5 py-2.5 min-h-11 rounded-xl transition hover:bg-white/5 border border-white/10 touch-manipulation"
           >
             Login with Gmail
           </button>
           <button
             type="button"
             onClick={() => openGoogleModal("signup")}
-            className="text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-3 sm:px-4 py-2 rounded-xl transition shadow-md shadow-indigo-600/30 flex items-center gap-2"
+            className="text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-3 sm:px-4 py-2.5 min-h-11 rounded-xl transition shadow-md shadow-indigo-600/30 flex items-center gap-2 touch-manipulation"
           >
             <span className="hidden xs:inline sm:inline">Signup with Gmail</span>
             <span className="sm:hidden">Signup</span>
@@ -101,7 +101,7 @@ export function LandingScreen() {
             <button
               type="button"
               onClick={() => openGoogleModal("signin")}
-              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 text-slate-800 font-bold py-3.5 px-6 rounded-2xl transition duration-200 shadow-lg active:scale-[0.99] group"
+              className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 text-slate-800 font-bold py-3.5 px-6 min-h-12 rounded-2xl transition duration-200 shadow-lg active:scale-[0.99] group touch-manipulation text-sm sm:text-base"
             >
               <GoogleMark className="w-5 h-5 transition-transform group-hover:scale-110" />
               <span>Continue with Google / Gmail</span>

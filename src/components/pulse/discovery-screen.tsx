@@ -80,7 +80,7 @@ export function DiscoveryScreen() {
   });
 
   return (
-    <section className="flex-1 max-w-6xl mx-auto w-full px-4 sm:px-6 py-6 flex flex-col space-y-6 animate-in fade-in duration-300">
+    <section className="flex-1 max-w-6xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-6 flex flex-col space-y-4 sm:space-y-6 animate-in fade-in duration-300 min-h-0">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 glass-panel rounded-3xl shadow-xl">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl pulse-grad flex items-center justify-center text-white text-xl shadow-lg shadow-indigo-600/30">
@@ -106,7 +106,7 @@ export function DiscoveryScreen() {
             type="button"
             onClick={resyncContacts}
             disabled={isSyncing}
-            className="px-3.5 py-2.5 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-white/10 transition flex items-center gap-2 disabled:opacity-60"
+            className="px-3.5 py-2.5 min-h-11 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-white/10 transition flex items-center gap-2 disabled:opacity-60 touch-manipulation"
           >
             <RefreshCw
               className={cn("size-3.5", isSyncing && "animate-spin")}
@@ -116,7 +116,7 @@ export function DiscoveryScreen() {
           <button
             type="button"
             onClick={() => setScreen("chat")}
-            className="flex-1 md:flex-initial px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2"
+            className="flex-1 md:flex-initial px-4 py-2.5 min-h-11 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2 touch-manipulation"
           >
             <MessageSquareText className="size-3.5" />
             <span>Open Chat Workspace</span>
@@ -203,7 +203,7 @@ export function DiscoveryScreen() {
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-12 overflow-y-auto max-h-[60vh] pr-1">
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-16 sm:pb-12 overflow-y-auto max-h-[min(60dvh,32rem)] pr-1">
           {filtered.length === 0 ? (
             <div className="col-span-1 md:col-span-2 lg:col-span-3 text-center py-12 text-slate-500 text-sm glass-card rounded-3xl">
               <Users className="size-8 mb-2 text-slate-600 mx-auto block" />

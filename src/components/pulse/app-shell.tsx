@@ -1,6 +1,7 @@
 "use client";
 
 import { AmbientGlow } from "./ambient";
+import { AndroidInstallBanner } from "./android-install-banner";
 import { ChatWorkspace } from "./chat-workspace";
 import { DeviceSimulator } from "./device-simulator";
 import { DiscoveryScreen } from "./discovery-screen";
@@ -42,6 +43,7 @@ function Screens() {
       {screen === "chat" && <ChatWorkspace />}
       <GoogleModal />
       <DeviceSimulator />
+      <AndroidInstallBanner />
       <Toast />
     </>
   );
@@ -50,9 +52,9 @@ function Screens() {
 export function PulseApp() {
   return (
     <PulseProvider>
-      <div className="bg-[#070b14] text-slate-100 font-sans antialiased min-h-screen selection:bg-indigo-500 selection:text-white flex flex-col justify-between overflow-x-hidden relative">
+      <div className="bg-[#070b14] text-slate-100 font-sans antialiased min-h-dvh selection:bg-indigo-500 selection:text-white flex flex-col justify-between overflow-x-hidden relative pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
         <AmbientGlow />
-        <div className="relative z-10 flex-1 flex flex-col w-full">
+        <div className="relative z-10 flex-1 flex flex-col w-full min-h-0">
           <Screens />
         </div>
       </div>

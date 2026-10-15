@@ -101,11 +101,11 @@ export function ChatWorkspace() {
   }
 
   return (
-    <section className="flex-1 h-[calc(100vh-1rem)] max-w-7xl mx-auto w-full p-2 sm:p-4 animate-in fade-in duration-300">
-      <div className="h-full w-full glass-panel rounded-3xl overflow-hidden flex border border-white/10 shadow-2xl relative">
+    <section className="flex-1 h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-0.5rem)] max-w-7xl mx-auto w-full p-1.5 sm:p-4 animate-in fade-in duration-300 min-h-0">
+      <div className="h-full w-full glass-panel rounded-2xl sm:rounded-3xl overflow-hidden flex border border-white/10 shadow-2xl relative">
         <aside
           className={cn(
-            "w-full md:w-80 lg:w-96 border-r border-white/10 flex-col bg-[#0b101d]/90 backdrop-blur-2xl transition-all duration-300",
+            "w-full md:w-80 lg:w-96 border-r border-white/10 flex-col bg-[#0b101d]/90 backdrop-blur-2xl transition-all duration-300 min-h-0",
             mobileSidebarOpen ? "flex" : "hidden md:flex",
             !mobileSidebarOpen && "md:flex",
           )}
@@ -134,18 +134,18 @@ export function ChatWorkspace() {
               <button
                 type="button"
                 onClick={() => setScreen("discovery")}
-                className="p-2 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition"
+                className="p-2.5 min-h-11 min-w-11 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition flex items-center justify-center"
                 title="Find Synced Contacts"
               >
-                <UserPlus className="size-3.5" />
+                <UserPlus className="size-4" />
               </button>
               <button
                 type="button"
                 onClick={signOut}
-                className="p-2 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition"
+                className="p-2.5 min-h-11 min-w-11 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition flex items-center justify-center"
                 title="Sign Out"
               >
-                <LogOut className="size-3.5" />
+                <LogOut className="size-4" />
               </button>
             </div>
           </div>
@@ -204,10 +204,10 @@ export function ChatWorkspace() {
                     type="button"
                     onClick={() => setActiveContactId(c.id)}
                     className={cn(
-                      "w-full p-3 rounded-2xl flex items-center gap-3 cursor-pointer transition text-left",
+                      "w-full p-3 min-h-[4.25rem] rounded-2xl flex items-center gap-3 cursor-pointer transition text-left touch-manipulation",
                       isActive
                         ? "bg-indigo-600/20 border border-indigo-500/40 text-white"
-                        : "hover:bg-white/5 text-slate-300 border border-transparent",
+                        : "hover:bg-white/5 active:bg-white/10 text-slate-300 border border-transparent",
                     )}
                   >
                     <div className="relative shrink-0">
@@ -274,10 +274,10 @@ export function ChatWorkspace() {
                   <button
                     type="button"
                     onClick={() => setMobileSidebarOpen(true)}
-                    className="md:hidden text-slate-300 p-2 hover:bg-white/5 rounded-lg"
+                    className="md:hidden text-slate-300 p-2.5 min-h-11 min-w-11 hover:bg-white/5 rounded-lg flex items-center justify-center"
                     aria-label="Open conversations"
                   >
-                    <Menu className="size-4" />
+                    <Menu className="size-5" />
                   </button>
                   <div className="relative shrink-0">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -325,7 +325,7 @@ export function ChatWorkspace() {
                   <button
                     type="button"
                     onClick={openSimulator}
-                    className="flex items-center gap-1.5 text-xs font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:opacity-90 text-white px-3 py-2 rounded-xl shadow-lg transition active:scale-95"
+                    className="flex items-center gap-1.5 text-xs font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:opacity-90 text-white px-3 py-2.5 min-h-11 rounded-xl shadow-lg transition active:scale-95 touch-manipulation"
                   >
                     <Smartphone className="size-3.5" />
                     <span className="hidden sm:inline">Simulate Recipient</span>
@@ -336,10 +336,10 @@ export function ChatWorkspace() {
                     onClick={() =>
                       showToast("Testing voice audio gateway...")
                     }
-                    className="p-2 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition"
+                    className="p-2.5 min-h-11 min-w-11 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition flex items-center justify-center"
                     title="Carrier Audio Call"
                   >
-                    <Phone className="size-3.5" />
+                    <Phone className="size-4" />
                   </button>
                 </div>
               </header>
@@ -467,7 +467,7 @@ export function ChatWorkspace() {
                 </div>
               )}
 
-              <footer className="p-3.5 border-t border-white/10 bg-[#0e1526]/80 backdrop-blur-md shrink-0">
+              <footer className="p-3 sm:p-3.5 border-t border-white/10 bg-[#0e1526]/80 backdrop-blur-md shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
                 <form
                   onSubmit={onSubmit}
                   className="flex items-center gap-2"
@@ -475,26 +475,28 @@ export function ChatWorkspace() {
                   <button
                     type="button"
                     onClick={() => setEmojiOpen(!emojiOpen)}
-                    className="p-2.5 text-slate-400 hover:text-amber-400 hover:bg-white/5 rounded-xl transition"
+                    className="p-2.5 min-h-11 min-w-11 text-slate-400 hover:text-amber-400 hover:bg-white/5 rounded-xl transition flex items-center justify-center"
                     title="Insert Emoji"
                   >
-                    <Smile className="size-4" />
+                    <Smile className="size-5" />
                   </button>
                   <div className="relative flex-1">
                     <input
                       value={draft}
                       onChange={(e) => setDraft(e.target.value)}
                       type="text"
+                      inputMode="text"
+                      enterKeyHint="send"
                       placeholder="Type a message across platform..."
                       autoComplete="off"
                       disabled={isSending}
-                      className="w-full glass-card text-xs sm:text-sm rounded-xl pl-4 pr-10 py-3 text-white placeholder-slate-500 border border-white/10 focus:outline-none focus:border-indigo-500 disabled:opacity-60"
+                      className="w-full glass-card text-base sm:text-sm rounded-xl pl-4 pr-10 py-3 min-h-11 text-white placeholder-slate-500 border border-white/10 focus:outline-none focus:border-indigo-500 disabled:opacity-60"
                     />
                   </div>
                   <button
                     type="submit"
                     disabled={isSending || !draft.trim()}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white w-11 h-11 rounded-xl flex items-center justify-center transition shadow-lg shadow-indigo-600/30 active:scale-95 shrink-0 disabled:opacity-50"
+                    className="bg-indigo-600 hover:bg-indigo-500 text-white w-12 h-12 min-h-12 rounded-xl flex items-center justify-center transition shadow-lg shadow-indigo-600/30 active:scale-95 shrink-0 disabled:opacity-50 touch-manipulation"
                   >
                     {isSending ? (
                       <RefreshCw className="size-4 animate-spin" />

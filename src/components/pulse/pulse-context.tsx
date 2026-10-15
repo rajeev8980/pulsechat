@@ -191,7 +191,14 @@ export function PulseProvider({ children }: { children: ReactNode }) {
             list.find((c) => c.id === "c3")?.id || list[0]?.id || "c3";
           setActiveContactId(first);
           await refreshMessages(first);
-          if (!cancelled) setScreen("discovery");
+          if (!cancelled) {
+            const wanted =
+              typeof window !== "undefined"
+                ? new URLSearchParams(window.location.search).get("screen")
+                : null;
+            setScreen(wanted === "chat" ? "chat" : "discovery");
+            if (wanted === "chat") setMobileSidebarOpen(true);
+          }
         }
       } catch {
         if (!cancelled) setApiError("Could not reach PulseChat API.");

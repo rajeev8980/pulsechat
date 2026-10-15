@@ -7,6 +7,7 @@ Unified omnichannel messenger — one inbox for WhatsApp, Telegram, Instagram Di
 - **Frontend / UI:** Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui
 - **Backend:** Next.js Route Handlers (`/api/*`) + cookie session + in-memory data store
 - **Client:** React context talks to the API for login, contacts, messages, and bridge simulation
+- **Android mobile web app (PWA):** installable via Chrome — manifest, service worker, home-screen icons, install banner
 
 ## Run locally
 
@@ -16,6 +17,14 @@ npm run dev -- -p 43127
 ```
 
 Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
+
+### Install on Android
+
+1. Open the site in **Chrome** on Android (same LAN URL as the machine running `npm run dev`, e.g. `http://<your-ip>:43127`).
+2. Tap the install banner, or Chrome menu → **Install app** / **Add to Home screen**.
+3. Launch PulseChat from the home screen — it opens fullscreen (`display: standalone`).
+
+PWA assets: `/manifest.webmanifest`, `/sw.js`, `/icons/icon-192.png`, `/icons/icon-512.png`.
 
 ## Try the flow
 

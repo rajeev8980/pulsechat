@@ -96,6 +96,22 @@
   }
   html {
     @apply font-sans;
+    /* Prevent Android Chrome rubber-band overscroll flash */
+    overscroll-behavior: none;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button,
+  a,
+  [role="button"] {
+    touch-action: manipulation;
+  }
+  /* Keep inputs ≥16px on mobile to avoid Android focus zoom */
+  @media (max-width: 640px) {
+    input,
+    textarea,
+    select {
+      font-size: 16px;
+    }
   }
 }
 
