@@ -1,9 +1,11 @@
+import { connection } from "next/server";
 import { NextResponse } from "next/server";
 import { APP_VERSION, BUILD_ID } from "@/lib/build-id";
 
-export const dynamic = "force-dynamic";
-
 export async function GET() {
+  // Opt into request-time rendering under cacheComponents
+  await connection();
+
   return NextResponse.json(
     {
       ok: true,
