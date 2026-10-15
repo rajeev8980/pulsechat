@@ -4,6 +4,8 @@ Unified omnichannel messenger — one inbox for WhatsApp, Telegram, Instagram Di
 
 **No fake users:** sign in with your own name + email. Contacts start empty — add people yourself.
 
+**Pulse↔Pulse:** Add a contact as **Native Pulse** with their PulseChat email. Messages land in their inbox when they sign in with that email (live poll every 2s).
+
 **Real WhatsApp:** Send opens WhatsApp on your phone with the message; the other person only gets it after you tap Send in WhatsApp. Optional Meta Cloud API via `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID`.
 
 ## Stack

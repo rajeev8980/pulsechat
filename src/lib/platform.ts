@@ -38,6 +38,7 @@ export function getPlatformDeliveryTag(
   platform: Platform,
   delivery?: DeliveryStatus,
 ): string {
+  if (delivery === "pulse") return "Delivered on Pulse ✓✓";
   if (delivery === "whatsapp_api") return "Sent via WhatsApp Cloud API ✓✓";
   if (delivery === "whatsapp_handoff")
     return "Opened in WhatsApp — tap Send there to deliver";

@@ -11,7 +11,7 @@ export async function POST(_req: Request, { params }: Params) {
   }
 
   const { contactId } = await params;
-  const contact = acceptBridge(contactId);
+  const contact = acceptBridge(session.user.email, contactId);
   if (!contact) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   }

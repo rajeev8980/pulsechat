@@ -27,11 +27,14 @@ export interface Contact {
   bridgeConnected: boolean;
   invitationSent: boolean;
   platformName: string;
+  /** Pulse↔Pulse peer account email */
+  peerEmail?: string;
 }
 
 /** How the outbound message was (or will be) delivered. */
 export type DeliveryStatus =
   | "local"
+  | "pulse"
   | "whatsapp_handoff"
   | "whatsapp_api"
   | "sms_handoff"

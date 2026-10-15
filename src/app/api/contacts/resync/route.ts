@@ -8,8 +8,8 @@ export async function POST() {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  await new Promise((r) => setTimeout(r, 700));
-  const result = resyncContacts();
+  await new Promise((r) => setTimeout(r, 400));
+  const result = resyncContacts(session.user.email);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 503 });
   }

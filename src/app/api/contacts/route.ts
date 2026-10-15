@@ -17,7 +17,7 @@ export async function GET() {
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
-  return NextResponse.json({ contacts: listContacts() });
+  return NextResponse.json({ contacts: listContacts(session.user.email) });
 }
 
 export async function POST(req: Request) {
@@ -41,7 +41,7 @@ export async function POST(req: Request) {
     );
   }
 
-  const result = addContact({
+  const result = addContact(session.user.email, {
     name: body?.name || "",
     platform,
     handle: body?.handle,

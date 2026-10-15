@@ -80,7 +80,7 @@ export function DiscoveryScreen() {
 
   const [name, setName] = useState("");
   const [handle, setHandle] = useState("");
-  const [platform, setPlatform] = useState<Platform>("whatsapp");
+  const [platform, setPlatform] = useState<Platform>("pulse");
   const [formOpen, setFormOpen] = useState(false);
 
   const filtered = contacts.filter((c) => {
@@ -103,7 +103,9 @@ export function DiscoveryScreen() {
       platform,
       handle: handle.trim() || undefined,
       phone:
-        platform === "whatsapp" || platform === "sms"
+        platform === "whatsapp" ||
+        platform === "sms" ||
+        platform === "pulse"
           ? handle.trim()
           : undefined,
     });
@@ -131,7 +133,8 @@ export function DiscoveryScreen() {
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Add people by name and platform — nothing is pre-seeded.
+              Add a Pulse friend by their email for live Pulse↔Pulse chat, or
+              WhatsApp by phone.
             </p>
           </div>
         </div>
@@ -209,24 +212,36 @@ export function DiscoveryScreen() {
             </div>
             <div>
               <label className="text-[11px] text-slate-400 block mb-1.5">
-                {platform === "whatsapp" || platform === "sms"
-                  ? "Phone (with country code)"
-                  : "Handle or phone"}
+                {platform === "pulse"
+                  ? "Their PulseChat email"
+                  : platform === "whatsapp" || platform === "sms"
+                    ? "Phone (with country code)"
+                    : "Handle or phone"}
               </label>
               <input
                 value={handle}
                 onChange={(e) => setHandle(e.target.value)}
-                required={platform === "whatsapp" || platform === "sms"}
+                required={
+                  platform === "whatsapp" ||
+                  platform === "sms" ||
+                  platform === "pulse"
+                }
+                type={platform === "pulse" ? "email" : "text"}
                 placeholder={
-                  platform === "whatsapp" || platform === "sms"
-                    ? "+919334803286"
-                    : "@handle or +1…"
+                  platform === "pulse"
+                    ? "friend@email.com"
+                    : platform === "whatsapp" || platform === "sms"
+                      ? "+919334803286"
+                      : "@handle or +1…"
                 }
                 inputMode={
                   platform === "whatsapp" || platform === "sms"
                     ? "tel"
-                    : "text"
+                    : platform === "pulse"
+                      ? "email"
+                      : "text"
                 }
+                autoComplete={platform === "pulse" ? "email" : "off"}
                 className="w-full glass-card text-sm rounded-xl px-3 py-2.5 min-h-11 text-white border border-white/10 bg-transparent placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />
             </div>

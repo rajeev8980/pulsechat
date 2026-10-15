@@ -115,7 +115,6 @@ export function PulseProvider({ children }: { children: ReactNode }) {
   const [syncError, setSyncError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -150,41 +149,48 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     upsertContact(data.contact);
   }, [upsertContact]);
 
-  const waitForAutoReply = useCallback(
-    async (contactId: string, baselineCount: number) => {
-      setTypingContactId(contactId);
-      if (pollTimer.current) clearTimeout(pollTimer.current);
+  // Live Pulse↔Pulse inbox: poll while chatting with a Pulse peer
+  useEffect(() => {
+    if (screen !== "chat" || !activeContactId) return;
+    const contact = contacts.find((c) => c.id === activeContactId);
+    if (!contact || contact.platform !== "pulse") return;
 
-      const started = Date.now();
-      const poll = async () => {
-        try {
-          const data = await api.messages(contactId);
-          setMessages((prev) => ({ ...prev, [contactId]: data.messages }));
-          upsertContact(data.contact);
-          const hasNewThem =
-            data.messages.length > baselineCount &&
-            data.messages[data.messages.length - 1]?.sender === "them";
-          if (hasNewThem) {
-            setTypingContactId(null);
-            showToast(
-              `New message from ${data.contact.name} via ${data.contact.platformName}`,
-            );
-            return;
+    let cancelled = false;
+    let lastCount = (messages[activeContactId] || []).length;
+
+    const tick = async () => {
+      if (cancelled) return;
+      try {
+        const data = await api.messages(activeContactId);
+        if (cancelled) return;
+        setMessages((prev) => ({
+          ...prev,
+          [activeContactId]: data.messages,
+        }));
+        upsertContact(data.contact);
+        if (data.messages.length > lastCount) {
+          const newest = data.messages[data.messages.length - 1];
+          if (newest?.sender === "them") {
+            showToast(`New Pulse message from ${data.contact.name}`);
           }
-        } catch {
-          // keep polling briefly
+          lastCount = data.messages.length;
+        } else {
+          lastCount = data.messages.length;
         }
-        if (Date.now() - started > 6000) {
-          setTypingContactId(null);
-          return;
-        }
-        pollTimer.current = setTimeout(poll, 400);
-      };
+      } catch {
+        // ignore transient poll errors
+      }
+    };
 
-      pollTimer.current = setTimeout(poll, 500);
-    },
-    [showToast, upsertContact],
-  );
+    const id = setInterval(tick, 2000);
+    void tick();
+    return () => {
+      cancelled = true;
+      clearInterval(id);
+    };
+    // messages intentionally omitted — lastCount tracks length locally
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [screen, activeContactId, contacts, showToast, upsertContact]);
 
   useEffect(() => {
     let cancelled = false;
@@ -236,7 +242,6 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     return () => {
       cancelled = true;
       clearTimeout(bootWatchdog);
-      if (pollTimer.current) clearTimeout(pollTimer.current);
     };
   }, [loadContacts, refreshMessages]);
 
@@ -404,18 +409,17 @@ export function PulseProvider({ children }: { children: ReactNode }) {
         }));
         upsertContact(data.contact);
 
-        if (data.message.delivery === "whatsapp_api") {
+        if (data.pulseDelivered || data.message.delivery === "pulse") {
+          showToast(`Delivered to ${data.contact.name} on Pulse`);
+        } else if (data.message.delivery === "whatsapp_api") {
           showToast(`Sent to WhatsApp for ${data.contact.name}`);
         } else if (
           data.needsClientHandoff === "whatsapp" ||
           data.needsClientHandoff === "sms"
         ) {
-          // Handoff already attempted above; if API says cloud failed, reopen.
           if (data.cloudError) {
             handoffToDevice(data.needsClientHandoff, phone, text);
           }
-        } else if (platform === "pulse") {
-          showToast("Message saved in PulseChat");
         }
       } catch (e) {
         const err = e as Error & {

@@ -20,15 +20,16 @@ export async function GET(req: Request, { params }: Params) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const owner = session.user.email;
   const { contactId } = await params;
-  const contact = getContact(contactId);
+  const contact = getContact(owner, contactId);
   if (!contact) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   }
 
   const { searchParams } = new URL(req.url);
   const after = searchParams.get("after");
-  let messages = getMessages(contactId);
+  let messages = getMessages(owner, contactId);
   if (after) {
     const idx = messages.findIndex((m) => m.id === after);
     messages = idx >= 0 ? messages.slice(idx + 1) : messages;
@@ -47,16 +48,16 @@ export async function POST(req: Request, { params }: Params) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const owner = session.user.email;
   const { contactId } = await params;
   const body = (await req.json().catch(() => null)) as { text?: string } | null;
   const text = body?.text ?? "";
 
-  const contact = getContact(contactId);
+  const contact = getContact(owner, contactId);
   if (!contact) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   }
 
-  // Real WhatsApp Cloud API path (only when env credentials are set)
   if (contact.platform === "whatsapp" && isWhatsAppCloudConfigured()) {
     const phone = toWhatsAppPhone(contact.phone || contact.handle);
     if (!phone) {
@@ -71,8 +72,7 @@ export async function POST(req: Request, { params }: Params) {
 
     const cloud = await sendWhatsAppCloudMessage(phone, text.trim());
     if (!cloud.ok) {
-      // Fall through to handoff so the user can still send from their phone
-      const result = sendMessage(contactId, text, {
+      const result = sendMessage(owner, contactId, text, {
         delivery: "whatsapp_handoff",
       });
       if (!result.ok) {
@@ -92,7 +92,9 @@ export async function POST(req: Request, { params }: Params) {
       });
     }
 
-    const result = sendMessage(contactId, text, { delivery: "whatsapp_api" });
+    const result = sendMessage(owner, contactId, text, {
+      delivery: "whatsapp_api",
+    });
     if (!result.ok) {
       return NextResponse.json(
         { error: result.error, message: result.message },
@@ -110,7 +112,7 @@ export async function POST(req: Request, { params }: Params) {
     });
   }
 
-  const result = sendMessage(contactId, text);
+  const result = sendMessage(owner, contactId, text);
   if (!result.ok) {
     return NextResponse.json(
       { error: result.error, message: result.message },
@@ -118,23 +120,23 @@ export async function POST(req: Request, { params }: Params) {
     );
   }
 
-  // Never invent fake WhatsApp replies — that made delivery look real.
   return NextResponse.json({
     message: result.message,
     contact: result.contact,
     invitationSent: result.invitationSent,
     autoReplyPending: false,
     needsClientHandoff: result.needsClientHandoff ?? null,
+    pulseDelivered: result.pulseDelivered ?? false,
     whatsappCloudConfigured: isWhatsAppCloudConfigured(),
   });
 }
 
-/** Client confirms handoff opened (optional status update). */
 export async function PATCH(req: Request, { params }: Params) {
   const session = await readSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
+  const owner = session.user.email;
   const { contactId } = await params;
   const body = (await req.json().catch(() => null)) as {
     messageId?: string;
@@ -142,10 +144,14 @@ export async function PATCH(req: Request, { params }: Params) {
   } | null;
 
   if (!body?.messageId || !body.delivery) {
-    return NextResponse.json({ error: "messageId and delivery required" }, { status: 400 });
+    return NextResponse.json(
+      { error: "messageId and delivery required" },
+      { status: 400 },
+    );
   }
 
   const message = updateMessageDelivery(
+    owner,
     contactId,
     body.messageId,
     body.delivery,

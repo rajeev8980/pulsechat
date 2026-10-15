@@ -11,6 +11,7 @@ export async function POST(req: Request, { params }: Params) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
+  const owner = session.user.email;
   const { contactId } = await params;
   const body = (await req.json().catch(() => null)) as {
     messageId?: string;
@@ -20,8 +21,8 @@ export async function POST(req: Request, { params }: Params) {
     return NextResponse.json({ error: "messageId required" }, { status: 400 });
   }
 
-  const contact = getContact(contactId);
-  const result = retryMessage(contactId, body.messageId);
+  const contact = getContact(owner, contactId);
+  const result = retryMessage(owner, contactId, body.messageId);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }

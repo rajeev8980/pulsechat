@@ -83,6 +83,7 @@ export const api = {
       needsClientHandoff?: "whatsapp" | "sms" | null;
       cloudError?: string;
       whatsappCloudConfigured?: boolean;
+      pulseDelivered?: boolean;
     }>(`/api/messages/${contactId}`, {
       method: "POST",
       body: JSON.stringify({ text }),

@@ -12,9 +12,8 @@ export async function POST(_req: Request, { params }: Params) {
 
   const { contactId } = await params;
 
-  // Simulate typing delay on server
-  await new Promise((r) => setTimeout(r, 900));
-  const result = simulateReply(contactId);
+  await new Promise((r) => setTimeout(r, 500));
+  const result = simulateReply(session.user.email, contactId);
   if (!result) {
     return NextResponse.json({ error: "Contact not found" }, { status: 404 });
   }

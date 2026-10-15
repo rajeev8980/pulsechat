@@ -381,12 +381,12 @@ export function ChatWorkspace() {
               >
                 <div className="flex justify-center my-2">
                   <span className="text-[10px] font-mono px-3 py-1 rounded-full bg-slate-800/80 text-slate-400 border border-white/5">
-                    {activeContact.platform === "whatsapp"
-                      ? `Real WhatsApp: Send opens WhatsApp for ${activeContact.phone} — they only get it after you tap Send there`
-                      : activeContact.platform === "sms"
-                        ? `Real SMS: Send opens your Messages app for ${activeContact.phone}`
-                        : activeContact.platform === "pulse"
-                          ? "End-to-End Encrypted Native PulseChat Session"
+                    {activeContact.platform === "pulse"
+                      ? `Pulse↔Pulse live chat with ${activeContact.peerEmail || activeContact.handle} — they see this when signed in with that email`
+                      : activeContact.platform === "whatsapp"
+                        ? `Real WhatsApp: Send opens WhatsApp for ${activeContact.phone} — they only get it after you tap Send there`
+                        : activeContact.platform === "sms"
+                          ? `Real SMS: Send opens your Messages app for ${activeContact.phone}`
                           : `${activeContact.platformName} is saved in PulseChat only (no live API yet)`}
                   </span>
                 </div>
@@ -435,7 +435,8 @@ export function ChatWorkspace() {
                       ) : (
                         <div className="flex flex-col items-end gap-1 mt-1">
                           <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono">
-                            {msg.delivery === "whatsapp_api" ? (
+                            {msg.delivery === "whatsapp_api" ||
+                            msg.delivery === "pulse" ? (
                               <CheckCheck className="size-3 text-emerald-400" />
                             ) : (
                               <AlertTriangle className="size-3 text-amber-400" />
@@ -586,7 +587,22 @@ export function ChatWorkspace() {
 
 function BridgeBanner() {
   const { activeContact, openSimulator, showToast } = usePulse();
-  if (!activeContact || activeContact.platform === "pulse") return null;
+  if (!activeContact) return null;
+
+  if (activeContact.platform === "pulse") {
+    return (
+      <div className="px-4 py-2.5 text-xs flex items-center justify-between bg-indigo-500/15 border-b border-indigo-500/25 text-indigo-100 shrink-0 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse shrink-0" />
+          <span className="leading-snug">
+            <strong>Pulse↔Pulse:</strong> Messages go to{" "}
+            {activeContact.peerEmail || activeContact.handle}. They appear when
+            that person signs into PulseChat with the same email.
+          </span>
+        </div>
+      </div>
+    );
+  }
 
   if (activeContact.platform === "whatsapp") {
     return (
