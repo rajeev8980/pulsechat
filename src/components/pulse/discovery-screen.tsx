@@ -69,6 +69,7 @@ const PLATFORM_OPTIONS: { value: Platform | "auto"; label: string }[] = [
 
 export function DiscoveryScreen() {
   const {
+    user,
     contacts,
     discoveryFilter,
     setDiscoveryFilter,
@@ -92,21 +93,34 @@ export function DiscoveryScreen() {
   const [formOpen, setFormOpen] = useState(false);
   const [pasteOpen, setPasteOpen] = useState(false);
   const [pasteText, setPasteText] = useState("");
+  const [showAvailableOnly, setShowAvailableOnly] = useState(false);
 
   const deviceSync = useMemo(() => canPickDeviceContacts(), []);
+  const availableCount = useMemo(
+    () => contacts.filter((c) => c.onPulse).length,
+    [contacts],
+  );
+  const mobileSyncedCount = useMemo(
+    () =>
+      contacts.filter(
+        (c) => (c.mobile || c.phone) && !(c.phone || "").includes("@"),
+      ).length,
+    [contacts],
+  );
 
   const filtered = contacts.filter((c) => {
     const matchesFilter =
       discoveryFilter === "all" || c.platform === discoveryFilter;
+    const matchesAvail = !showAvailableOnly || Boolean(c.onPulse);
     const q = discoverySearch.toLowerCase().trim();
     const matchesSearch =
       !q ||
       c.name.toLowerCase().includes(q) ||
       c.handle.toLowerCase().includes(q) ||
       (c.email || "").toLowerCase().includes(q) ||
-      c.phone.toLowerCase().includes(q) ||
+      (c.mobile || c.phone || "").toLowerCase().includes(q) ||
       c.platformName.toLowerCase().includes(q);
-    return matchesFilter && matchesSearch;
+    return matchesFilter && matchesAvail && matchesSearch;
   });
 
   async function onAdd(e: FormEvent) {
@@ -152,9 +166,17 @@ export function DiscoveryScreen() {
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Tap Sync → select contacts on your phone. Entries with an{" "}
-              <strong className="text-slate-300">email</strong> become Pulse
-              peers; phone-only become WhatsApp.
+              Fetch mobiles from your phonebook — we match numbers to people
+              already on PulseChat
+              {user.phone ? (
+                <>
+                  {" "}
+                  · your mobile{" "}
+                  <strong className="text-slate-300 font-mono">
+                    {user.phone}
+                  </strong>
+                </>
+              ) : null}
             </p>
           </div>
         </div>
@@ -172,9 +194,7 @@ export function DiscoveryScreen() {
               <Smartphone className="size-3.5" />
             )}
             <span>
-              {deviceSync
-                ? "Sync from phone (email + phone)"
-                : "Sync contacts"}
+              {deviceSync ? "Fetch mobiles from phone" : "Fetch mobiles"}
             </span>
           </button>
           <button
@@ -200,6 +220,52 @@ export function DiscoveryScreen() {
           >
             <MessageSquareText className="size-3.5" />
             <span>Open Chat</span>
+          </button>
+        </div>
+      </div>
+
+      <div className="glass-panel rounded-3xl p-4 sm:p-5 border border-emerald-500/25 bg-emerald-500/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        <div className="min-w-0">
+          <h3 className="text-sm font-bold text-white flex items-center gap-2">
+            <Smartphone className="size-4 text-emerald-400 shrink-0" />
+            Auto-fetch mobiles · see who is on PulseChat
+          </h3>
+          <p className="text-[11px] text-slate-400 mt-1">
+            {deviceSync
+              ? "Chrome asks you to pick contacts — we pull every mobile + email, then highlight who already signed up."
+              : "On desktop, paste Name, email, phone lines. On Android Chrome (HTTPS) the phone picker can auto-fetch mobiles."}
+          </p>
+          <p className="text-[11px] text-emerald-300/90 mt-1.5 font-mono">
+            {mobileSyncedCount} mobile
+            {mobileSyncedCount === 1 ? "" : "s"} synced · {availableCount}{" "}
+            available on PulseChat
+          </p>
+        </div>
+        <div className="flex flex-wrap gap-2 shrink-0">
+          <button
+            type="button"
+            onClick={resyncContacts}
+            disabled={isSyncing}
+            className="px-4 py-2.5 min-h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-xs font-bold flex items-center gap-2"
+          >
+            {isSyncing ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Smartphone className="size-3.5" />
+            )}
+            Fetch mobiles now
+          </button>
+          <button
+            type="button"
+            onClick={() => setShowAvailableOnly((v) => !v)}
+            className={cn(
+              "px-3.5 py-2.5 min-h-11 rounded-xl text-xs font-semibold border transition",
+              showAvailableOnly
+                ? "bg-indigo-600 text-white border-indigo-500"
+                : "bg-slate-800/80 text-slate-300 border-white/10 hover:bg-slate-700",
+            )}
+          >
+            {showAvailableOnly ? "Showing available" : "Available only"}
           </button>
         </div>
       </div>
@@ -430,16 +496,16 @@ export function DiscoveryScreen() {
           ) : (
             filtered.map((c) => {
               let bridgeBadge: ReactNode;
-              if (c.platform === "pulse") {
+              if (c.onPulse || c.platform === "pulse") {
                 bridgeBadge = (
-                  <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 font-semibold">
-                    Native Pulse
+                  <span className="text-[10px] bg-indigo-500/25 text-indigo-200 px-2 py-0.5 rounded-full border border-indigo-400/40 font-semibold">
+                    Available on PulseChat
                   </span>
                 );
               } else if (c.platform === "whatsapp") {
                 bridgeBadge = (
                   <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 font-semibold">
-                    Opens WhatsApp
+                    Mobile · WhatsApp
                   </span>
                 );
               } else {
@@ -450,16 +516,26 @@ export function DiscoveryScreen() {
                 );
               }
 
-              const email = c.email || c.peerEmail || (c.handle.includes("@") ? c.handle : "");
-              const phone = c.phone && !c.phone.includes("@") ? c.phone : "";
+              const email =
+                c.email ||
+                c.peerEmail ||
+                (c.handle.includes("@") ? c.handle : "");
+              const mobile =
+                c.mobile ||
+                (c.phone && !c.phone.includes("@") ? c.phone : "");
 
               return (
                 <div
                   key={c.id}
-                  className="glass-card glass-card-hover p-4 sm:p-5 rounded-2xl flex flex-col justify-between border border-white/10"
+                  className={cn(
+                    "glass-card glass-card-hover p-4 sm:p-5 rounded-2xl flex flex-col justify-between border",
+                    c.onPulse
+                      ? "border-indigo-500/40 ring-1 ring-indigo-500/20"
+                      : "border-white/10",
+                  )}
                 >
                   <div>
-                    <div className="flex items-start justify-between mb-3">
+                    <div className="flex items-start justify-between mb-3 gap-2">
                       <div className="relative">
                         {/* eslint-disable-next-line @next/next/no-img-element */}
                         <img
@@ -474,25 +550,30 @@ export function DiscoveryScreen() {
                       {bridgeBadge}
                     </div>
                     <h4 className="font-bold text-sm text-white">{c.name}</h4>
+                    {mobile ? (
+                      <p className="text-xs text-emerald-300/90 font-mono mt-1 truncate">
+                        ☎ {mobile}
+                      </p>
+                    ) : null}
                     {email ? (
-                      <p className="text-xs text-slate-300 font-mono mt-1 truncate">
+                      <p className="text-[11px] text-slate-400 font-mono mt-0.5 truncate">
                         ✉ {email}
                       </p>
                     ) : null}
-                    {phone ? (
-                      <p className="text-[11px] text-slate-400 font-mono mt-0.5 truncate">
-                        ☎ {phone}
-                      </p>
-                    ) : null}
-                    {!email && !phone ? (
+                    {!email && !mobile ? (
                       <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">
                         {c.handle}
+                      </p>
+                    ) : null}
+                    {c.onPulse ? (
+                      <p className="text-[11px] text-indigo-300 mt-1.5">
+                        Already on PulseChat — chat natively
                       </p>
                     ) : null}
                   </div>
                   <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
                     <span className="text-[11px] text-slate-400 font-medium">
-                      {c.platformName}
+                      {c.onPulse ? "Native Pulse" : c.platformName}
                     </span>
                     <button
                       type="button"

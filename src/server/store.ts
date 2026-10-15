@@ -34,6 +34,8 @@ interface UserAccount {
   email: string;
   name: string;
   avatar: string;
+  /** Digits / E.164 mobile for directory matching */
+  phone?: string;
   contacts: Contact[];
   /** Non-Pulse threads keyed by contact id */
   localThreads: Record<string, StoredMessage[]>;
@@ -157,15 +159,35 @@ export function getStore(): StoreState {
   return globalThis.__pulseStore;
 }
 
+function phonesMatch(a: string, b: string) {
+  const da = normalizeDigits(a);
+  const db = normalizeDigits(b);
+  if (!da || !db) return false;
+  return da === db || da.endsWith(db) || db.endsWith(da);
+}
+
+function findPulseAccountByPhone(phone: string): UserAccount | null {
+  const d = normalizeDigits(phone);
+  if (!d) return null;
+  for (const u of getStore().users.values()) {
+    if (u.phone && phonesMatch(u.phone, d)) return u;
+  }
+  return null;
+}
+
 function ensureUser(user: User): UserAccount {
   const store = getStore();
   const email = normalizeEmail(user.email);
+  const phone = user.phone?.trim()
+    ? user.phone.trim()
+    : undefined;
   let account = store.users.get(email);
   if (!account) {
     account = {
       email,
       name: user.name,
       avatar: user.avatar,
+      phone,
       contacts: INITIAL_CONTACTS.map((c) => ({ ...c })),
       localThreads: {},
     };
@@ -173,6 +195,7 @@ function ensureUser(user: User): UserAccount {
   } else {
     account.name = user.name || account.name;
     account.avatar = user.avatar || account.avatar;
+    if (phone) account.phone = phone;
   }
   schedulePersist();
   return account;
@@ -206,14 +229,21 @@ function toViewMessage(ownerEmail: string, m: StoredMessage): Message {
 
 export function createSession(user: User): Session {
   const store = getStore();
-  const normalized = {
+  const normalized: User = {
     ...user,
     email: normalizeEmail(user.email),
+    phone: user.phone?.trim() || undefined,
   };
-  ensureUser(normalized);
+  const account = ensureUser(normalized);
+  const sessionUser: User = {
+    name: account.name,
+    email: account.email,
+    avatar: account.avatar,
+    phone: account.phone,
+  };
   const session: Session = {
     id: uid("sess"),
-    user: normalized,
+    user: sessionUser,
     createdAt: Date.now(),
   };
   store.sessions.set(session.id, session);
@@ -233,8 +263,8 @@ export function destroySession(sessionId: string | undefined) {
 }
 
 export function listContacts(ownerEmail: string): Contact[] {
-  const account = requireAccount(ownerEmail);
-  return account.contacts.map((c) => ({ ...c }));
+  // Re-match mobiles/emails against registered Pulse users on every list
+  return refreshPulseAvailability(ownerEmail).contacts;
 }
 
 export function getContact(
@@ -387,8 +417,12 @@ export function addContact(
     const mine = ensurePulsePeerContact(owner, peer, { phone: phoneRaw });
     ensurePulsePeerContact(peer, owner);
     mine.name = name;
-    if (phoneRaw) mine.phone = phoneRaw;
+    if (phoneRaw) {
+      mine.phone = phoneRaw;
+      mine.mobile = phoneRaw;
+    }
     mine.email = peerEmail;
+    mine.onPulse = true;
     schedulePersist();
     return { ...mine };
   }
@@ -459,8 +493,83 @@ export function addContact(
 
   owner.contacts.unshift(contact);
   if (!owner.localThreads[contact.id]) owner.localThreads[contact.id] = [];
+  // Match against registered Pulse mobiles/emails
+  refreshPulseAvailability(ownerEmail);
+  const refreshed = owner.contacts.find((x) => x.id === contact.id);
   schedulePersist();
-  return contact;
+  return refreshed ? { ...refreshed } : contact;
+}
+
+/**
+ * Mark contacts who already have a PulseChat account (matched by email or mobile).
+ * Upgrades matched phone contacts to Native Pulse in place (no duplicate cards).
+ */
+export function refreshPulseAvailability(ownerEmail: string): {
+  contacts: Contact[];
+  availableOnPulse: number;
+} {
+  const owner = requireAccount(ownerEmail);
+  const me = normalizeEmail(ownerEmail);
+  const seenPeers = new Set<string>();
+
+  for (const c of owner.contacts) {
+    const mobile = (c.mobile || c.phone || "").trim();
+    if (mobile && !c.mobile && !mobile.includes("@")) c.mobile = mobile;
+
+    const emailKey = (c.email || c.peerEmail || "").trim();
+    let peer: UserAccount | null = null;
+    if (emailKey.includes("@")) {
+      peer = getStore().users.get(normalizeEmail(emailKey)) ?? null;
+    }
+    if (!peer && mobile) peer = findPulseAccountByPhone(mobile);
+
+    if (peer && peer.email !== me) {
+      // Merge duplicate cards for the same Pulse peer
+      if (seenPeers.has(peer.email) && c.platform !== "pulse") {
+        c.onPulse = true;
+        c.status = "On PulseChat · see Native Pulse card";
+        continue;
+      }
+      seenPeers.add(peer.email);
+      c.onPulse = true;
+      c.platform = "pulse";
+      c.peerEmail = peer.email;
+      c.email = peer.email;
+      c.handle = peer.email;
+      c.platformName = PLATFORM_META.pulse.platformName;
+      c.bridgeConnected = true;
+      c.invitationSent = true;
+      c.status = mobile
+        ? `On PulseChat · ${mobile}`
+        : "On PulseChat · available";
+      if (mobile) {
+        c.phone = mobile;
+        c.mobile = mobile;
+      } else if (peer.phone) {
+        c.phone = peer.phone;
+        c.mobile = peer.phone;
+      }
+      c.avatar = peer.avatar || c.avatar;
+      if (!c.name || c.name === mobile) c.name = peer.name;
+      // Reverse link so they can message you too
+      ensurePulsePeerContact(peer, owner, { phone: owner.phone });
+    } else if (c.platform === "pulse" && c.peerEmail) {
+      c.onPulse = true;
+      seenPeers.add(normalizeEmail(c.peerEmail));
+    } else {
+      c.onPulse = false;
+      if (mobile && c.platform === "whatsapp") {
+        c.status = `Mobile synced · ${mobile}`;
+      }
+    }
+  }
+
+  const availableOnPulse = owner.contacts.filter((c) => c.onPulse).length;
+  schedulePersist();
+  return {
+    contacts: owner.contacts.map((c) => ({ ...c })),
+    availableOnPulse,
+  };
 }
 
 /** Bulk import from device phonebook / paste — keeps email and phone. */
@@ -476,6 +585,7 @@ export function importContacts(
   imported: number;
   updated: number;
   skipped: number;
+  availableOnPulse: number;
   contacts: Contact[];
 } {
   let imported = 0;
@@ -502,32 +612,46 @@ export function importContacts(
       continue;
     }
 
-    // Prefer Pulse when email exists so peer chat works; keep phone too.
+    // If mobile matches a Pulse user, import as Pulse immediately
+    const pulsePeer =
+      (email?.includes("@")
+        ? getStore().users.get(normalizeEmail(email))
+        : null) || (phone ? findPulseAccountByPhone(phone) : null);
+
     const platform: Platform =
-      item.platform || (email?.includes("@") ? "pulse" : "whatsapp");
+      item.platform ||
+      (pulsePeer || email?.includes("@") ? "pulse" : "whatsapp");
 
     const beforeIds = new Set(owner.contacts.map((c) => c.id));
     const result = addContact(ownerEmail, {
       name,
       platform,
-      email,
+      email: pulsePeer?.email || email,
       phone,
-      handle: email || phone,
+      handle: pulsePeer?.email || email || phone,
     });
     if ("error" in result) {
       skipped += 1;
       continue;
     }
+    // Stamp mobile on the stored contact
+    const stored = owner.contacts.find((x) => x.id === result.id);
+    if (stored && phone) {
+      stored.mobile = phone;
+      stored.phone = phone;
+    }
     if (beforeIds.has(result.id) || before.has(result.id)) updated += 1;
     else imported += 1;
   }
 
+  const avail = refreshPulseAvailability(ownerEmail);
   schedulePersist();
   return {
     imported,
     updated,
     skipped,
-    contacts: listContacts(ownerEmail),
+    availableOnPulse: avail.availableOnPulse,
+    contacts: avail.contacts,
   };
 }
 
@@ -810,6 +934,7 @@ export function findPulseUser(email: string): User | null {
     name: account.name,
     email: account.email,
     avatar: account.avatar,
+    phone: account.phone,
   };
 }
 

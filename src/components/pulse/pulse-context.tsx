@@ -275,10 +275,14 @@ export function PulseProvider({ children }: { children: ReactNode }) {
         if (first) await refreshMessages(first);
         setGoogleModalOpen(false);
         setSyncError(null);
+        const onPulse = list.filter((c) => c.onPulse).length;
         showToast(
-          list.length
-            ? `Signed in as ${loggedIn.email}`
-            : `Signed in — tap Sync phone contacts to import email & phone`,
+          loggedIn.phone
+            ? `Signed in · mobile ${loggedIn.phone}` +
+                (onPulse
+                  ? ` · ${onPulse} contact${onPulse === 1 ? "" : "s"} on PulseChat`
+                  : " — fetch phonebook to see who's available")
+            : `Signed in — add your mobile next time; tap Fetch mobiles to find who's on PulseChat`,
         );
         setScreen("discovery");
       } catch (e) {
@@ -335,19 +339,20 @@ export function PulseProvider({ children }: { children: ReactNode }) {
       try {
         const data = await api.importContacts(drafts);
         setContacts(data.contacts);
+        const mobiles = drafts.filter((d) => d.phone).length;
+        const avail = data.availableOnPulse ?? 0;
         const emailBit =
           meta?.withEmail != null
-            ? ` · ${meta.withEmail} with email→Pulse`
-            : "";
-        const phoneBit =
-          meta?.phoneOnly != null && meta.phoneOnly > 0
-            ? ` · ${meta.phoneOnly} phone-only→WhatsApp`
+            ? ` · ${meta.withEmail} with email`
             : "";
         showToast(
-          `Synced ${data.imported} new · ${data.updated} updated` +
+          `Fetched ${mobiles} mobile${mobiles === 1 ? "" : "s"}` +
+            (avail
+              ? ` · ${avail} available on PulseChat`
+              : " · none on PulseChat yet") +
+            ` · ${data.imported} new · ${data.updated} updated` +
             (data.skipped ? ` · ${data.skipped} skipped` : "") +
-            emailBit +
-            phoneBit,
+            emailBit,
         );
       } catch (e) {
         setSyncError(errMessage(e, "Phonebook sync failed"));

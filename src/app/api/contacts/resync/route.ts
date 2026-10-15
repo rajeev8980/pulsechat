@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { readSession } from "@/server/session";
-import { resyncContacts } from "@/server/store";
+import { refreshPulseAvailability, resyncContacts } from "@/server/store";
 
 export async function POST() {
   const session = await readSession();
@@ -13,5 +13,9 @@ export async function POST() {
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 503 });
   }
-  return NextResponse.json({ contacts: result.contacts });
+  const avail = refreshPulseAvailability(session.user.email);
+  return NextResponse.json({
+    contacts: avail.contacts,
+    availableOnPulse: avail.availableOnPulse,
+  });
 }

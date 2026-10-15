@@ -204,14 +204,27 @@ export function ChatWorkspace() {
             ) : (
               filtered.map((c) => {
                 const t = messages[c.id] || [];
+                const mobile =
+                  c.mobile ||
+                  (c.phone && !c.phone.includes("@") ? c.phone : "");
                 const lastMsg =
                   t.length > 0
                     ? t[t.length - 1].text
-                    : c.platform === "pulse"
-                      ? "Start encrypted chat..."
-                      : `Bridge ready for ${c.platformName}`;
+                    : c.onPulse
+                      ? mobile
+                        ? `On PulseChat · ${mobile}`
+                        : "On PulseChat · start chat"
+                      : c.platform === "pulse"
+                        ? "Start encrypted chat..."
+                        : mobile
+                          ? `Mobile ${mobile}`
+                          : `Bridge ready for ${c.platformName}`;
                 const lastTime =
-                  t.length > 0 ? t[t.length - 1].time : "Bridge";
+                  t.length > 0
+                    ? t[t.length - 1].time
+                    : c.onPulse
+                      ? "Pulse"
+                      : "Bridge";
                 const isActive = c.id === activeContactId;
                 return (
                   <button
@@ -222,7 +235,9 @@ export function ChatWorkspace() {
                       "w-full p-3 min-h-[4.25rem] rounded-2xl flex items-center gap-3 cursor-pointer transition text-left touch-manipulation",
                       isActive
                         ? "bg-indigo-600/20 border border-indigo-500/40 text-white"
-                        : "hover:bg-white/5 active:bg-white/10 text-slate-300 border border-transparent",
+                        : c.onPulse
+                          ? "hover:bg-white/5 active:bg-white/10 text-slate-300 border border-indigo-500/20"
+                          : "hover:bg-white/5 active:bg-white/10 text-slate-300 border border-transparent",
                     )}
                   >
                     <div className="relative shrink-0">
@@ -240,7 +255,7 @@ export function ChatWorkspace() {
                       </div>
                     </div>
                     <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-0.5">
+                      <div className="flex items-center justify-between mb-0.5 gap-1">
                         <h5
                           className={cn(
                             "text-xs font-bold truncate",
@@ -248,8 +263,13 @@ export function ChatWorkspace() {
                           )}
                         >
                           {c.name}
+                          {c.onPulse ? (
+                            <span className="ml-1 text-[9px] font-semibold text-indigo-300">
+                              · on Pulse
+                            </span>
+                          ) : null}
                         </h5>
-                        <span className="text-[10px] text-slate-500 font-mono">
+                        <span className="text-[10px] text-slate-500 font-mono shrink-0">
                           {lastTime}
                         </span>
                       </div>

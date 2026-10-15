@@ -14,6 +14,8 @@ export interface User {
   name: string;
   email: string;
   avatar: string;
+  /** Optional mobile so phonebook sync can mark “on PulseChat” */
+  phone?: string;
 }
 
 export interface Contact {
@@ -23,6 +25,8 @@ export interface Contact {
   handle: string;
   /** E.164-ish phone when known (WhatsApp / SMS / synced) */
   phone: string;
+  /** Primary mobile from phonebook sync */
+  mobile?: string;
   /** Email when known (Pulse peer or synced phonebook) */
   email?: string;
   avatar: string;
@@ -32,6 +36,8 @@ export interface Contact {
   platformName: string;
   /** Pulse↔Pulse peer account email */
   peerEmail?: string;
+  /** True when this person already has a PulseChat account (matched email/mobile) */
+  onPulse?: boolean;
 }
 
 /** How the outbound message was (or will be) delivered. */

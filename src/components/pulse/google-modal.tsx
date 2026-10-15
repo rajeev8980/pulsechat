@@ -39,12 +39,14 @@ export function GoogleModal() {
   } = usePulse();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
 
   if (!googleModalOpen) return null;
 
   function submit() {
     const trimmedEmail = email.trim();
     const trimmedName = name.trim();
+    const trimmedPhone = phone.trim();
     if (!trimmedEmail.includes("@")) return;
     const display =
       trimmedName ||
@@ -55,6 +57,7 @@ export function GoogleModal() {
     login({
       name: display,
       email: trimmedEmail,
+      phone: trimmedPhone || undefined,
       avatar: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(display)}&backgroundColor=4f46e5`,
     });
   }
@@ -87,8 +90,8 @@ export function GoogleModal() {
             </h3>
             <p className="text-[11px] text-slate-400">
               Continue to{" "}
-              <strong className="text-indigo-400">PulseChat</strong> with your
-              email
+              <strong className="text-indigo-400">PulseChat</strong> — email +
+              mobile so friends can find you
             </p>
           </div>
         </div>
@@ -132,6 +135,21 @@ export function GoogleModal() {
                 className="w-full glass-card text-sm rounded-xl px-3 py-2.5 h-auto min-h-11 text-white border-white/10 bg-transparent"
               />
             </div>
+            <div>
+              <label className="text-[11px] text-slate-400 block mb-1.5">
+                Mobile number{" "}
+                <span className="text-slate-500">(so contacts find you)</span>
+              </label>
+              <Input
+                type="tel"
+                inputMode="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder="+919334803286"
+                autoComplete="tel"
+                className="w-full glass-card text-sm rounded-xl px-3 py-2.5 h-auto min-h-11 text-white border-white/10 bg-transparent"
+              />
+            </div>
             <Button
               type="submit"
               className="w-full bg-indigo-600 hover:bg-indigo-500 text-sm py-3 h-auto min-h-11 rounded-xl text-white font-bold"
@@ -139,8 +157,8 @@ export function GoogleModal() {
               Continue
             </Button>
             <p className="text-[10px] text-slate-500 text-center">
-              No demo accounts — use your real name and email. Contacts stay
-              empty until you add them.
+              After sign-in, fetch mobiles from your phonebook — we highlight who
+              is already on PulseChat.
             </p>
           </form>
         )}

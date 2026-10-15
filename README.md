@@ -1,67 +1,61 @@
 # PulseChat
 
-Unified omnichannel messenger — one inbox for WhatsApp, Telegram, Instagram Direct, Messenger, Carrier SMS, and native Pulse. Frontend UI matches the uploaded design; backend is a Next.js API with session cookies and an in-memory store (local demo, no real OAuth or carrier gateways).
+Unified omnichannel messenger — one inbox for WhatsApp, Telegram, Instagram Direct, Messenger, Carrier SMS, and native Pulse.
 
-**No fake users:** sign in with your own name + email. Contacts start empty — add people yourself.
+**No fake users:** sign in with your name, email, and mobile. Contacts start empty.
 
-**Common messaging gateway:** Platform A (PulseChat) → `/api/gateway/send` → Platform B (Pulse / WhatsApp / Telegram / SMS…). See `docs` in the agent store: `messaging-gateway.md`.
+**Auto-fetch mobiles:** After sign-in, tap **Fetch mobiles from phone** (Android Chrome Contact Picker) or paste `Name, email, phone` lines. PulseChat matches synced numbers to registered accounts and marks **Available on PulseChat**.
 
-**Pulse↔Pulse:** Add a contact as **Native Pulse** with their PulseChat email. Messages land in their inbox when they sign in with that email (live poll every 2s).
+**Common messaging gateway:** Platform A → `/api/gateway/send` → Platform B.
 
-**Real WhatsApp / Telegram:** Gateway opens the native app (handoff); they receive it after you Send there. Optional WhatsApp Cloud API via `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID`.
+**Pulse↔Pulse:** Matched mobiles/emails become Native Pulse peers; messages land in their inbox (live poll every 2s).
+
+**Real WhatsApp / Telegram:** Gateway opens the native app (handoff). Optional WhatsApp Cloud API via `WHATSAPP_ACCESS_TOKEN` + `WHATSAPP_PHONE_NUMBER_ID`.
 
 ## Stack
 
 - **Frontend / UI:** Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui
-- **Backend:** Next.js Route Handlers (`/api/*`) + cookie session + in-memory data store
-- **Client:** React context talks to the API for login, contacts, messages, and bridge simulation
-- **Android mobile web app (PWA):** installable via Chrome — manifest, service worker, home-screen icons, install banner
+- **Backend:** Next.js Route Handlers (`/api/*`) + cookie session + in-memory data store (persisted under `/tmp`)
+- **Android PWA:** installable via Chrome — manifest, service worker, auto-update on `buildId` change
 
 ## Run locally
 
 ```bash
 npm install
-npm run dev -- -p 43127
+npm run build
+npm run start -- -p 43127
 ```
 
 Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 
-**Live (global):** https://dental-milwaukee-funk-chevy.trycloudflare.com  
-
-Installed Android/PWA auto-updates when `/api/version` `buildId` changes (poll ~12s + on focus).
-
 ### Install on Android
 
-1. Open the **live** URL (see docs) or your LAN/dev URL in **Chrome** on Android.
-2. Tap the install banner, or Chrome menu → **Install app** / **Add to Home screen**.
-3. Launch PulseChat from the home screen — it opens fullscreen (`display: standalone`).
-
-PWA assets: `/manifest.webmanifest`, `/sw.js`, `/icons/icon-192.png`, `/icons/icon-512.png`.
+1. Open the live HTTPS URL in **Chrome** on Android.
+2. Tap install / Add to Home screen.
+3. Use **Fetch mobiles from phone** — select contacts; mobiles are matched to who is on PulseChat.
 
 ## Try the flow
 
-1. **Landing** — Sign in with your name + email (`POST /api/auth/login`).
-2. **Discovery** — Contacts start empty; **Add contact**, then `GET /api/contacts`. Refresh via `POST /api/contacts/resync`.
-3. **Chat** — Threads from `GET /api/messages/:id`; send via `POST /api/messages/:id`.
-4. **Simulate Recipient** — `POST /api/bridges/:id/accept` or `…/simulate-reply`.
-5. Tip: send `/fail` once to exercise failed delivery + retry (`POST /api/messages/:id/retry`).
+1. **Sign in** with name + email + **mobile** (so friends can find you by number).
+2. **Fetch mobiles** from the phonebook (or Paste import).
+3. Contacts with a matching Pulse account show **Available on PulseChat** — chat natively.
+4. Phone-only contacts without Pulse stay as WhatsApp handoff.
 
 ## API overview
 
 | Method | Path | Purpose |
 | --- | --- | --- |
 | GET | `/api/health` | Health check |
-| POST | `/api/auth/login` | Email sign-in (sets `pulsechat_session`) |
+| POST | `/api/auth/login` | Sign-in (`name`, `email`, optional `phone`) |
 | POST | `/api/auth/logout` | Clear session |
 | GET | `/api/auth/me` | Current user |
-| GET | `/api/contacts` | Your contacts (starts empty) |
+| GET | `/api/contacts` | Contacts + Pulse availability match |
 | POST | `/api/contacts` | Add a contact |
-| POST | `/api/contacts/resync` | Refresh phonebook |
-| GET | `/api/messages/:contactId` | Thread (+ optional `?after=`) |
-| POST | `/api/messages/:contactId` | Send message |
-| POST | `/api/messages/:contactId]/retry` | Retry failed message |
-| POST | `/api/bridges/:contactId/accept` | Accept platform bridge |
-| POST | `/api/bridges/:contactId/simulate-reply` | Recipient reply |
+| POST | `/api/contacts/import` | Bulk import (returns `availableOnPulse`) |
+| POST | `/api/contacts/resync` | Refresh / device sync helper |
+| POST | `/api/gateway/send` | Common messaging gateway |
+| GET | `/api/messages/:contactId` | Thread |
+| GET | `/api/version` | PWA auto-update build id |
 
 ## Scripts
 

@@ -7,6 +7,7 @@ export async function POST(req: Request) {
     name?: string;
     email?: string;
     avatar?: string;
+    phone?: string;
   } | null;
 
   const email = body?.email?.trim();
@@ -25,7 +26,9 @@ export async function POST(req: Request) {
     body?.avatar?.trim() ||
     `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=4f46e5`;
 
-  const session = createSession({ name, email, avatar });
+  const phone = body?.phone?.trim() || undefined;
+
+  const session = createSession({ name, email, avatar, phone });
   const res = NextResponse.json({ user: session.user });
   res.cookies.set(SESSION_COOKIE, session.id, {
     httpOnly: true,

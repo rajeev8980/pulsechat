@@ -54,7 +54,12 @@ export const api = {
     request<{ version: string; buildId: string }>("/api/version", {
       timeoutMs: 3000,
     }),
-  login: (body: { name: string; email: string; avatar: string }) =>
+  login: (body: {
+    name: string;
+    email: string;
+    avatar: string;
+    phone?: string;
+  }) =>
     request<{ user: User }>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(body),
@@ -86,15 +91,17 @@ export const api = {
       imported: number;
       updated: number;
       skipped: number;
+      availableOnPulse: number;
       contacts: Contact[];
     }>("/api/contacts/import", {
       method: "POST",
       body: JSON.stringify({ contacts }),
     }),
   resync: () =>
-    request<{ contacts: Contact[] }>("/api/contacts/resync", {
-      method: "POST",
-    }),
+    request<{ contacts: Contact[]; availableOnPulse?: number }>(
+      "/api/contacts/resync",
+      { method: "POST" },
+    ),
   messages: (contactId: string) =>
     request<{ messages: Message[]; contact: Contact }>(
       `/api/messages/${contactId}`,
