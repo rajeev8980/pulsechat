@@ -1,12 +1,12 @@
 # PulseChat
 
-Unified omnichannel messenger — one inbox for WhatsApp, Telegram, Instagram Direct, Messenger, Carrier SMS, and native Pulse. This repo ships a complete local v1 web slice matching the uploaded design (mock Google sign-in and bridged conversations; no real OAuth or platform APIs).
+Unified omnichannel messenger — one inbox for WhatsApp, Telegram, Instagram Direct, Messenger, Carrier SMS, and native Pulse. Frontend UI matches the uploaded design; backend is a Next.js API with session cookies and an in-memory store (local demo, no real OAuth or carrier gateways).
 
 ## Stack
 
-- Next.js (App Router) + TypeScript
-- Tailwind CSS + shadcn/ui
-- Client-side mock data for contacts, threads, and bridge simulation
+- **Frontend / UI:** Next.js App Router, TypeScript, Tailwind CSS, shadcn/ui
+- **Backend:** Next.js Route Handlers (`/api/*`) + cookie session + in-memory data store
+- **Client:** React context talks to the API for login, contacts, messages, and bridge simulation
 
 ## Run locally
 
@@ -19,20 +19,37 @@ Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 
 ## Try the flow
 
-1. **Landing** — Continue with Google / Gmail (mock account chooser).
-2. **Discovery** — Search/filter synced contacts; open Chat Workspace or Chat Now.
-3. **Chat** — Pick a conversation, send messages, use **Simulate Recipient** to accept a bridge or reply from the other side.
-4. Tip: send `/fail` once to exercise the failed-delivery + retry state.
+1. **Landing** — Continue with Google / Gmail (mock account chooser → `POST /api/auth/login`).
+2. **Discovery** — Contacts from `GET /api/contacts`; re-sync via `POST /api/contacts/resync`.
+3. **Chat** — Threads from `GET /api/messages/:id`; send via `POST /api/messages/:id`.
+4. **Simulate Recipient** — `POST /api/bridges/:id/accept` or `…/simulate-reply`.
+5. Tip: send `/fail` once to exercise failed delivery + retry (`POST /api/messages/:id/retry`).
+
+## API overview
+
+| Method | Path | Purpose |
+| --- | --- | --- |
+| GET | `/api/health` | Health check |
+| POST | `/api/auth/login` | Mock Gmail login (sets `pulsechat_session`) |
+| POST | `/api/auth/logout` | Clear session |
+| GET | `/api/auth/me` | Current user |
+| GET | `/api/contacts` | Synced contacts |
+| POST | `/api/contacts/resync` | Re-sync phonebook |
+| GET | `/api/messages/:contactId` | Thread (+ optional `?after=`) |
+| POST | `/api/messages/:contactId` | Send message |
+| POST | `/api/messages/:contactId/retry` | Retry failed message |
+| POST | `/api/bridges/:contactId/accept` | Accept platform bridge |
+| POST | `/api/bridges/:contactId/simulate-reply` | Recipient reply |
 
 ## Scripts
 
 | Command | Description |
 | --- | --- |
-| `npm run dev` | Dev server (add `-p 43127` for the project port) |
+| `npm run dev` | Dev server (add `-p 43127`) |
 | `npm run build` | Production build |
 | `npm run start` | Start production server |
 | `npm run lint` | ESLint |
 
 ## Design source
 
-Product UI follows the PulseChat omnichannel design HTML (landing → discovery → chat workspace + device simulator).
+Product UI follows the PulseChat omnichannel design (landing → discovery → chat workspace + device simulator).

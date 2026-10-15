@@ -4,17 +4,14 @@ import {
   createContext,
   useCallback,
   useContext,
+  useEffect,
   useMemo,
   useRef,
   useState,
   type ReactNode,
 } from "react";
-import {
-  createInitialMessages,
-  DEFAULT_USER,
-  INITIAL_CONTACTS,
-} from "@/lib/data";
-import { getAutoReply } from "@/lib/platform";
+import { api } from "@/lib/api";
+import { DEFAULT_USER } from "@/lib/data";
 import type {
   Contact,
   Message,
@@ -53,11 +50,13 @@ interface PulseContextValue {
   setMobileSidebarOpen: (v: boolean) => void;
   toast: string | null;
   showToast: (msg: string) => void;
+  isBooting: boolean;
   isSyncing: boolean;
   isLoggingIn: boolean;
   isSending: boolean;
   typingContactId: string | null;
   syncError: string | null;
+  apiError: string | null;
   login: (user: User) => void;
   loginCustom: (email: string) => void;
   signOut: () => void;
@@ -69,30 +68,21 @@ interface PulseContextValue {
   simulateReply: () => void;
   startChat: (contactId: string) => void;
   activeContact: Contact | undefined;
+  refreshMessages: (contactId: string) => Promise<void>;
 }
 
 const PulseContext = createContext<PulseContextValue | null>(null);
 
-function nowTime() {
-  return new Date().toLocaleTimeString([], {
-    hour: "2-digit",
-    minute: "2-digit",
-  });
-}
-
-function uid(prefix: string) {
-  return `${prefix}-${Math.random().toString(36).slice(2, 9)}`;
+function errMessage(e: unknown, fallback: string) {
+  if (e instanceof Error && e.message) return e.message;
+  return fallback;
 }
 
 export function PulseProvider({ children }: { children: ReactNode }) {
   const [screen, setScreen] = useState<Screen>("landing");
   const [user, setUser] = useState<User>(DEFAULT_USER);
-  const [contacts, setContacts] = useState<Contact[]>(() =>
-    INITIAL_CONTACTS.map((c) => ({ ...c })),
-  );
-  const [messages, setMessages] = useState<Record<string, Message[]>>(
-    createInitialMessages,
-  );
+  const [contacts, setContacts] = useState<Contact[]>([]);
+  const [messages, setMessages] = useState<Record<string, Message[]>>({});
   const [activeContactId, setActiveContactId] = useState("c3");
   const [discoveryFilter, setDiscoveryFilter] = useState<Platform | "all">(
     "all",
@@ -108,13 +98,15 @@ export function PulseProvider({ children }: { children: ReactNode }) {
   const [emojiOpen, setEmojiOpen] = useState(false);
   const [mobileSidebarOpen, setMobileSidebarOpen] = useState(true);
   const [toast, setToast] = useState<string | null>(null);
+  const [isBooting, setIsBooting] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isSending, setIsSending] = useState(false);
   const [typingContactId, setTypingContactId] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
+  const [apiError, setApiError] = useState<string | null>(null);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const failNextSend = useRef(false);
+  const pollTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -127,28 +119,127 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     [contacts, activeContactId],
   );
 
-  const openGoogleModal = useCallback((intent: "signin" | "signup" = "signin") => {
-    setGoogleIntent(intent);
-    setGoogleModalOpen(true);
+  const upsertContact = useCallback((contact: Contact) => {
+    setContacts((prev) => {
+      const idx = prev.findIndex((c) => c.id === contact.id);
+      if (idx === -1) return [...prev, contact];
+      const next = [...prev];
+      next[idx] = contact;
+      return next;
+    });
   }, []);
+
+  const loadContacts = useCallback(async () => {
+    const data = await api.contacts();
+    setContacts(data.contacts);
+    return data.contacts;
+  }, []);
+
+  const refreshMessages = useCallback(async (contactId: string) => {
+    const data = await api.messages(contactId);
+    setMessages((prev) => ({ ...prev, [contactId]: data.messages }));
+    upsertContact(data.contact);
+  }, [upsertContact]);
+
+  const waitForAutoReply = useCallback(
+    async (contactId: string, baselineCount: number) => {
+      setTypingContactId(contactId);
+      if (pollTimer.current) clearTimeout(pollTimer.current);
+
+      const started = Date.now();
+      const poll = async () => {
+        try {
+          const data = await api.messages(contactId);
+          setMessages((prev) => ({ ...prev, [contactId]: data.messages }));
+          upsertContact(data.contact);
+          const hasNewThem =
+            data.messages.length > baselineCount &&
+            data.messages[data.messages.length - 1]?.sender === "them";
+          if (hasNewThem) {
+            setTypingContactId(null);
+            showToast(
+              `New message from ${data.contact.name} via ${data.contact.platformName}`,
+            );
+            return;
+          }
+        } catch {
+          // keep polling briefly
+        }
+        if (Date.now() - started > 6000) {
+          setTypingContactId(null);
+          return;
+        }
+        pollTimer.current = setTimeout(poll, 400);
+      };
+
+      pollTimer.current = setTimeout(poll, 500);
+    },
+    [showToast, upsertContact],
+  );
+
+  useEffect(() => {
+    let cancelled = false;
+    (async () => {
+      try {
+        const { user: sessionUser } = await api.me();
+        if (cancelled) return;
+        if (sessionUser) {
+          setUser(sessionUser);
+          const list = await loadContacts();
+          if (cancelled) return;
+          const first =
+            list.find((c) => c.id === "c3")?.id || list[0]?.id || "c3";
+          setActiveContactId(first);
+          await refreshMessages(first);
+          if (!cancelled) setScreen("discovery");
+        }
+      } catch {
+        if (!cancelled) setApiError("Could not reach PulseChat API.");
+      } finally {
+        if (!cancelled) setIsBooting(false);
+      }
+    })();
+    return () => {
+      cancelled = true;
+      if (pollTimer.current) clearTimeout(pollTimer.current);
+    };
+  }, [loadContacts, refreshMessages]);
+
+  const openGoogleModal = useCallback(
+    (intent: "signin" | "signup" = "signin") => {
+      setGoogleIntent(intent);
+      setGoogleModalOpen(true);
+    },
+    [],
+  );
 
   const closeGoogleModal = useCallback(() => setGoogleModalOpen(false), []);
   const openSimulator = useCallback(() => setSimulatorOpen(true), []);
   const closeSimulator = useCallback(() => setSimulatorOpen(false), []);
 
   const login = useCallback(
-    (next: User) => {
+    async (next: User) => {
       setIsLoggingIn(true);
-      setTimeout(() => {
-        setUser(next);
-        setIsLoggingIn(false);
+      setApiError(null);
+      try {
+        const { user: loggedIn } = await api.login(next);
+        setUser(loggedIn);
+        const list = await loadContacts();
+        const first =
+          list.find((c) => c.id === "c3")?.id || list[0]?.id || "c3";
+        setActiveContactId(first);
+        await refreshMessages(first);
         setGoogleModalOpen(false);
         setSyncError(null);
-        showToast(`Signed in as ${next.email}`);
+        showToast(`Signed in as ${loggedIn.email}`);
         setScreen("discovery");
-      }, 700);
+      } catch (e) {
+        showToast(errMessage(e, "Sign-in failed"));
+      } finally {
+        setIsLoggingIn(false);
+      }
     },
-    [showToast],
+    [loadContacts, refreshMessages, showToast],
   );
 
   const loginCustom = useCallback(
@@ -160,7 +251,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
       }
       const raw = trimmed.split("@")[0];
       const displayName = raw.charAt(0).toUpperCase() + raw.slice(1);
-      login({
+      void login({
         name: displayName,
         email: trimmed,
         avatar:
@@ -170,162 +261,175 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     [login, showToast],
   );
 
-  const signOut = useCallback(() => {
-    showToast("Signed out of PulseChat");
+  const signOut = useCallback(async () => {
+    try {
+      await api.logout();
+    } catch {
+      // ignore
+    }
+    setContacts([]);
+    setMessages({});
     setScreen("landing");
     setMobileSidebarOpen(true);
+    showToast("Signed out of PulseChat");
   }, [showToast]);
 
-  const resyncContacts = useCallback(() => {
+  const resyncContacts = useCallback(async () => {
     setIsSyncing(true);
     setSyncError(null);
-    setTimeout(() => {
-      // Occasional mock failure for error-state coverage
-      if (Math.random() < 0.12) {
-        setIsSyncing(false);
-        setSyncError("Phonebook sync timed out. Check your connection and retry.");
-        return;
-      }
-      setContacts(INITIAL_CONTACTS.map((c) => ({ ...c })));
-      setIsSyncing(false);
+    try {
+      const data = await api.resync();
+      setContacts(data.contacts);
       showToast("11 contacts synced from Gmail & external phonebook!");
-    }, 800);
+    } catch (e) {
+      setSyncError(errMessage(e, "Phonebook sync failed"));
+    } finally {
+      setIsSyncing(false);
+    }
   }, [showToast]);
 
   const clearSyncError = useCallback(() => setSyncError(null), []);
 
-  const runAutoReply = useCallback(
-    (contact: Contact) => {
-      setTypingContactId(contact.id);
-      setTimeout(() => {
-        setTypingContactId(null);
-        const reply: Message = {
-          id: uid("msg"),
-          sender: "them",
-          text: getAutoReply(contact.platform),
-          time: nowTime(),
-        };
-        setMessages((prev) => ({
-          ...prev,
-          [contact.id]: [...(prev[contact.id] || []), reply],
-        }));
-        showToast(`New message from ${contact.name} via ${contact.platformName}`);
-      }, 1900);
-    },
-    [showToast],
-  );
-
   const sendMessage = useCallback(
     async (text: string) => {
-      const trimmed = text.trim();
-      if (!trimmed || !activeContact) return;
-
+      if (!activeContact) return;
+      const contactId = activeContact.id;
+      const baseline = (messages[contactId] || []).length;
       setIsSending(true);
-      const contact = activeContact;
-      const messageId = uid("msg");
-      const shouldFail = failNextSend.current || trimmed.toLowerCase() === "/fail";
-      failNextSend.current = false;
-
-      await new Promise((r) => setTimeout(r, 350));
-
-      if (shouldFail) {
-        const failed: Message = {
-          id: messageId,
-          sender: "me",
-          text: trimmed.replace(/^\/fail\s*/i, "") || trimmed,
-          time: nowTime(),
-          failed: true,
-        };
+      try {
+        const data = await api.sendMessage(contactId, text);
         setMessages((prev) => ({
           ...prev,
-          [contact.id]: [...(prev[contact.id] || []), failed],
+          [contactId]: [...(prev[contactId] || []), data.message],
         }));
+        upsertContact(data.contact);
+        if (data.invitationSent) {
+          showToast(
+            `1-Tap notification delivered to ${data.contact.name}'s ${data.contact.platformName}!`,
+          );
+        }
+        if (data.autoReplyPending) {
+          void waitForAutoReply(contactId, baseline + 1);
+        }
+      } catch (e) {
+        const err = e as Error & {
+          data?: { message?: Message; error?: string };
+        };
+        if (err.data?.message) {
+          setMessages((prev) => ({
+            ...prev,
+            [contactId]: [...(prev[contactId] || []), err.data!.message!],
+          }));
+        }
+        showToast(errMessage(e, "Message failed to deliver"));
+      } finally {
         setIsSending(false);
-        showToast("Message failed to deliver. Tap Retry to send again.");
-        return;
-      }
-
-      const msg: Message = {
-        id: messageId,
-        sender: "me",
-        text: trimmed,
-        time: nowTime(),
-      };
-      setMessages((prev) => ({
-        ...prev,
-        [contact.id]: [...(prev[contact.id] || []), msg],
-      }));
-
-      if (!contact.bridgeConnected && contact.platform !== "pulse") {
-        setContacts((prev) =>
-          prev.map((c) =>
-            c.id === contact.id ? { ...c, invitationSent: true } : c,
-          ),
-        );
-        showToast(
-          `1-Tap notification delivered to ${contact.name}'s ${contact.platformName}!`,
-        );
-      }
-
-      setIsSending(false);
-
-      if (contact.bridgeConnected) {
-        runAutoReply(contact);
       }
     },
-    [activeContact, runAutoReply, showToast],
+    [activeContact, messages, showToast, upsertContact, waitForAutoReply],
   );
 
   const retryMessage = useCallback(
     async (messageId: string) => {
       if (!activeContact) return;
-      const thread = messages[activeContact.id] || [];
-      const failed = thread.find((m) => m.id === messageId && m.failed);
-      if (!failed) return;
+      const contactId = activeContact.id;
+      const baseline = (messages[contactId] || []).filter(
+        (m) => m.id !== messageId,
+      ).length;
       setMessages((prev) => ({
         ...prev,
-        [activeContact.id]: (prev[activeContact.id] || []).filter(
-          (m) => m.id !== messageId,
-        ),
+        [contactId]: (prev[contactId] || []).filter((m) => m.id !== messageId),
       }));
-      await sendMessage(failed.text);
+      setIsSending(true);
+      try {
+        const data = await api.retryMessage(contactId, messageId);
+        setMessages((prev) => ({
+          ...prev,
+          [contactId]: [...(prev[contactId] || []), data.message],
+        }));
+        upsertContact(data.contact);
+        if (data.autoReplyPending) {
+          void waitForAutoReply(contactId, baseline + 1);
+        }
+      } catch (e) {
+        showToast(errMessage(e, "Retry failed"));
+        await refreshMessages(contactId);
+      } finally {
+        setIsSending(false);
+      }
     },
-    [activeContact, messages, sendMessage],
+    [
+      activeContact,
+      messages,
+      refreshMessages,
+      showToast,
+      upsertContact,
+      waitForAutoReply,
+    ],
   );
 
-  const acceptBridge = useCallback(() => {
+  const acceptBridge = useCallback(async () => {
     if (!activeContact) return;
-    setContacts((prev) =>
-      prev.map((c) =>
-        c.id === activeContact.id
-          ? { ...c, bridgeConnected: true, invitationSent: true }
-          : c,
-      ),
-    );
-    setSimulatorOpen(false);
-    showToast(
-      `${activeContact.name} accepted your bridge invitation on ${activeContact.platformName}!`,
-    );
-  }, [activeContact, showToast]);
+    try {
+      const { contact } = await api.acceptBridge(activeContact.id);
+      upsertContact(contact);
+      setSimulatorOpen(false);
+      showToast(
+        `${contact.name} accepted your bridge invitation on ${contact.platformName}!`,
+      );
+    } catch (e) {
+      showToast(errMessage(e, "Could not accept bridge"));
+    }
+  }, [activeContact, showToast, upsertContact]);
 
-  const simulateReply = useCallback(() => {
+  const simulateReply = useCallback(async () => {
     if (!activeContact) return;
-    setContacts((prev) =>
-      prev.map((c) =>
-        c.id === activeContact.id
-          ? { ...c, bridgeConnected: true, invitationSent: true }
-          : c,
-      ),
-    );
+    const contactId = activeContact.id;
     setSimulatorOpen(false);
-    runAutoReply({ ...activeContact, bridgeConnected: true });
-  }, [activeContact, runAutoReply]);
+    setTypingContactId(contactId);
+    try {
+      const data = await api.simulateReply(contactId);
+      upsertContact(data.contact);
+      setMessages((prev) => ({
+        ...prev,
+        [contactId]: [...(prev[contactId] || []), data.message],
+      }));
+      showToast(
+        `New message from ${data.contact.name} via ${data.contact.platformName}`,
+      );
+    } catch (e) {
+      showToast(errMessage(e, "Simulator reply failed"));
+    } finally {
+      setTypingContactId(null);
+    }
+  }, [activeContact, showToast, upsertContact]);
 
-  const startChat = useCallback((contactId: string) => {
-    setActiveContactId(contactId);
-    setMobileSidebarOpen(false);
-    setScreen("chat");
-  }, []);
+  const startChat = useCallback(
+    async (contactId: string) => {
+      setActiveContactId(contactId);
+      setMobileSidebarOpen(false);
+      setScreen("chat");
+      try {
+        await refreshMessages(contactId);
+      } catch (e) {
+        showToast(errMessage(e, "Could not load conversation"));
+      }
+    },
+    [refreshMessages, showToast],
+  );
+
+  const selectContact = useCallback(
+    async (id: string) => {
+      setActiveContactId(id);
+      setMobileSidebarOpen(false);
+      try {
+        await refreshMessages(id);
+      } catch (e) {
+        showToast(errMessage(e, "Could not load conversation"));
+      }
+    },
+    [refreshMessages, showToast],
+  );
 
   const value: PulseContextValue = {
     screen,
@@ -334,10 +438,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     contacts,
     messages,
     activeContactId,
-    setActiveContactId: (id) => {
-      setActiveContactId(id);
-      setMobileSidebarOpen(false);
-    },
+    setActiveContactId: selectContact,
     discoveryFilter,
     setDiscoveryFilter,
     discoverySearch,
@@ -359,11 +460,13 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     setMobileSidebarOpen,
     toast,
     showToast,
+    isBooting,
     isSyncing,
     isLoggingIn,
     isSending,
     typingContactId,
     syncError,
+    apiError,
     login,
     loginCustom,
     signOut,
@@ -375,6 +478,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     simulateReply,
     startChat,
     activeContact,
+    refreshMessages,
   };
 
   return (
