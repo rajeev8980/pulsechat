@@ -102,10 +102,30 @@ export const api = {
       cloudError?: string;
       whatsappCloudConfigured?: boolean;
       pulseDelivered?: boolean;
-    }>(`/api/messages/${contactId}`, {
+      route?: {
+        id: string;
+        status: string;
+        toPlatform: string;
+        detail?: string;
+      };
+      gateway?: {
+        from: string;
+        hub: string;
+        to: string;
+        status: string;
+      };
+    }>(`/api/gateway/send`, {
       method: "POST",
-      body: JSON.stringify({ text }),
+      body: JSON.stringify({ contactId, text }),
     }),
+  gatewayStatus: () =>
+    request<{
+      ok: boolean;
+      service: string;
+      role: string;
+      totalRouted: number;
+      whatsappCloudConfigured: boolean;
+    }>("/api/gateway/status", { timeoutMs: 3000 }),
   retryMessage: (contactId: string, messageId: string) =>
     request<{
       message: Message;

@@ -266,7 +266,7 @@ export function ChatWorkspace() {
           <div className="p-3 border-t border-white/10 bg-black/20 flex items-center justify-between text-[11px] text-slate-400">
             <span className="flex items-center gap-1.5">
               <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              All 6 Platform Routers Active
+              Pulse Gateway · common messaging API
             </span>
             <Shield className="size-3.5 text-indigo-400" />
           </div>

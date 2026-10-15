@@ -504,9 +504,13 @@ export function PulseProvider({ children }: { children: ReactNode }) {
         upsertContact(data.contact);
 
         if (data.pulseDelivered || data.message.delivery === "pulse") {
-          showToast(`Delivered to ${data.contact.name} on Pulse`);
+          showToast(
+            data.gateway
+              ? `Gateway → Pulse: delivered to ${data.contact.name}`
+              : `Delivered to ${data.contact.name} on Pulse`,
+          );
         } else if (data.message.delivery === "whatsapp_api") {
-          showToast(`Sent to WhatsApp for ${data.contact.name}`);
+          showToast(`Gateway → WhatsApp API: sent to ${data.contact.name}`);
         } else if (
           data.needsClientHandoff === "whatsapp" ||
           data.needsClientHandoff === "sms" ||

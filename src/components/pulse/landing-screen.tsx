@@ -1,6 +1,6 @@
 "use client";
 
-import { ArrowRight, Bolt, Lock } from "lucide-react";
+import { ArrowRight, Bolt, Cloud, Lock, MonitorSmartphone, Smartphone } from "lucide-react";
 import { FaBolt, FaFacebookMessenger, FaInstagram, FaTelegram, FaWhatsapp } from "react-icons/fa6";
 import { MdSms } from "react-icons/md";
 import { PREVIEW_FEED } from "@/lib/data";
@@ -214,12 +214,68 @@ export function LandingScreen() {
         </div>
       </div>
 
+      {/* Cross-platform architecture — matches common messaging hub diagram */}
+      <section className="pb-10 pt-4 max-w-2xl mx-auto w-full px-1">
+        <h2 className="text-center text-xl sm:text-2xl font-extrabold text-white mb-6">
+          How cross-platform messaging works
+        </h2>
+        <div className="flex flex-col items-center gap-0">
+          <div className="w-full glass-card rounded-2xl border border-white/10 px-5 py-4 flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-800/80 border border-white/10 flex items-center justify-center shrink-0">
+              <Smartphone className="size-5 text-indigo-300" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">Platform A</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                PulseChat — website, Android PWA, or your signed-in inbox.
+              </p>
+            </div>
+          </div>
+
+          <div className="h-8 w-px bg-gradient-to-b from-slate-600 to-indigo-500 my-1" />
+          <div className="text-[10px] text-slate-500 font-mono">↕</div>
+          <div className="h-8 w-px bg-gradient-to-b from-indigo-500 to-indigo-400 my-1" />
+
+          <div className="w-full rounded-2xl border border-indigo-500/40 bg-indigo-950/50 px-5 py-4 flex items-start gap-3 shadow-lg shadow-indigo-900/30">
+            <div className="w-10 h-10 rounded-xl bg-indigo-600/40 border border-indigo-400/30 flex items-center justify-center shrink-0">
+              <Cloud className="size-5 text-indigo-200" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">
+                Common messaging server / API
+              </p>
+              <p className="text-xs text-indigo-200/80 mt-0.5">
+                Pulse Gateway receives, stores, and routes every send (
+                <code className="text-indigo-300">/api/gateway/send</code>).
+              </p>
+            </div>
+          </div>
+
+          <div className="h-8 w-px bg-gradient-to-b from-indigo-400 to-slate-600 my-1" />
+          <div className="text-[10px] text-slate-500 font-mono">↕</div>
+          <div className="h-8 w-px bg-gradient-to-b from-slate-600 to-slate-500 my-1" />
+
+          <div className="w-full glass-card rounded-2xl border border-white/10 px-5 py-4 flex items-start gap-3">
+            <div className="w-10 h-10 rounded-xl bg-slate-800/80 border border-white/10 flex items-center justify-center shrink-0">
+              <MonitorSmartphone className="size-5 text-emerald-300" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-white">Platform B</p>
+              <p className="text-xs text-slate-400 mt-0.5">
+                Pulse peer inbox, WhatsApp, Telegram, SMS, and more — routed by
+                the gateway (live Pulse; device handoff or Cloud API for others).
+              </p>
+            </div>
+          </div>
+        </div>
+      </section>
+
       <footer className="py-4 border-t border-white/10 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
         <div>&copy; 2026 PulseChat Platform • Omnichannel Bridge Protocol</div>
         <div className="flex items-center gap-4">
-          <span>End-to-End Encryption</span>
-          <span>Zero-Knowledge Relay</span>
-          <span>Carrier Gateways</span>
+          <span>Pulse Gateway</span>
+          <span>Common messaging API</span>
+          <span>Cross-platform routes</span>
         </div>
       </footer>
     </section>

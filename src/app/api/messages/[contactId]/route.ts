@@ -1,16 +1,12 @@
 import { NextResponse } from "next/server";
-import { toWhatsAppPhone } from "@/lib/whatsapp";
 import { readSession } from "@/server/session";
+import { gatewaySend } from "@/server/gateway";
 import {
   getContact,
   getMessages,
-  sendMessage,
   updateMessageDelivery,
 } from "@/server/store";
-import {
-  isWhatsAppCloudConfigured,
-  sendWhatsAppCloudMessage,
-} from "@/server/whatsapp-cloud";
+import { isWhatsAppCloudConfigured } from "@/server/whatsapp-cloud";
 
 type Params = { params: Promise<{ contactId: string }> };
 
@@ -42,80 +38,26 @@ export async function GET(req: Request, { params }: Params) {
   });
 }
 
+/** Delegates to the common messaging gateway (Platform A → hub → Platform B). */
 export async function POST(req: Request, { params }: Params) {
   const session = await readSession();
   if (!session) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  const owner = session.user.email;
   const { contactId } = await params;
   const body = (await req.json().catch(() => null)) as { text?: string } | null;
   const text = body?.text ?? "";
 
-  const contact = getContact(owner, contactId);
-  if (!contact) {
-    return NextResponse.json({ error: "Contact not found" }, { status: 404 });
-  }
+  const result = await gatewaySend({
+    ownerEmail: session.user.email,
+    contactId,
+    text,
+  });
 
-  if (contact.platform === "whatsapp" && isWhatsAppCloudConfigured()) {
-    const phone = toWhatsAppPhone(contact.phone || contact.handle);
-    if (!phone) {
-      return NextResponse.json(
-        {
-          error:
-            "WhatsApp number must include country code (e.g. +919334803286).",
-        },
-        { status: 400 },
-      );
-    }
-
-    const cloud = await sendWhatsAppCloudMessage(phone, text.trim());
-    if (!cloud.ok) {
-      const result = sendMessage(owner, contactId, text, {
-        delivery: "whatsapp_handoff",
-      });
-      if (!result.ok) {
-        return NextResponse.json(
-          { error: result.error, message: result.message },
-          { status: result.message ? 422 : 400 },
-        );
-      }
-      return NextResponse.json({
-        message: result.message,
-        contact: result.contact,
-        invitationSent: result.invitationSent,
-        autoReplyPending: false,
-        needsClientHandoff: "whatsapp" as const,
-        cloudError: cloud.error,
-        whatsappCloudConfigured: true,
-      });
-    }
-
-    const result = sendMessage(owner, contactId, text, {
-      delivery: "whatsapp_api",
-    });
-    if (!result.ok) {
-      return NextResponse.json(
-        { error: result.error, message: result.message },
-        { status: result.message ? 422 : 400 },
-      );
-    }
-    return NextResponse.json({
-      message: result.message,
-      contact: result.contact,
-      invitationSent: result.invitationSent,
-      autoReplyPending: false,
-      needsClientHandoff: null,
-      whatsappCloudConfigured: true,
-      cloudMessageId: cloud.messageId,
-    });
-  }
-
-  const result = sendMessage(owner, contactId, text);
   if (!result.ok) {
     return NextResponse.json(
-      { error: result.error, message: result.message },
+      { error: result.error, message: result.message, route: result.route },
       { status: result.message ? 422 : 400 },
     );
   }
@@ -127,7 +69,15 @@ export async function POST(req: Request, { params }: Params) {
     autoReplyPending: false,
     needsClientHandoff: result.needsClientHandoff ?? null,
     pulseDelivered: result.pulseDelivered ?? false,
-    whatsappCloudConfigured: isWhatsAppCloudConfigured(),
+    whatsappCloudConfigured: result.whatsappCloudConfigured,
+    cloudError: result.cloudError,
+    route: result.route,
+    gateway: {
+      from: "Platform A · PulseChat",
+      hub: "Common messaging server / API",
+      to: `Platform B · ${result.contact.platformName}`,
+      status: result.route.status,
+    },
   });
 }
 
