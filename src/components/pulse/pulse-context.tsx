@@ -179,35 +179,52 @@ export function PulseProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    const bootWatchdog = setTimeout(() => {
+      if (!cancelled) {
+        setIsBooting(false);
+        setApiError((prev) => prev ?? "Startup took too long — you can still sign in.");
+      }
+    }, 10000);
+
     (async () => {
       try {
         const { user: sessionUser } = await api.me();
         if (cancelled) return;
         if (sessionUser) {
           setUser(sessionUser);
-          const list = await loadContacts();
-          if (cancelled) return;
-          const first =
-            list.find((c) => c.id === "c3")?.id || list[0]?.id || "c3";
-          setActiveContactId(first);
-          await refreshMessages(first);
-          if (!cancelled) {
-            const wanted =
-              typeof window !== "undefined"
-                ? new URLSearchParams(window.location.search).get("screen")
-                : null;
-            setScreen(wanted === "chat" ? "chat" : "discovery");
-            if (wanted === "chat") setMobileSidebarOpen(true);
+          try {
+            const list = await loadContacts();
+            if (cancelled) return;
+            const first =
+              list.find((c) => c.id === "c3")?.id || list[0]?.id || "c3";
+            setActiveContactId(first);
+            await refreshMessages(first);
+            if (!cancelled) {
+              const wanted =
+                typeof window !== "undefined"
+                  ? new URLSearchParams(window.location.search).get("screen")
+                  : null;
+              setScreen(wanted === "chat" ? "chat" : "discovery");
+              if (wanted === "chat") setMobileSidebarOpen(true);
+            }
+          } catch {
+            // Session exists but hydration failed — land on discovery empty rather than hang
+            if (!cancelled) {
+              setApiError("Signed in, but contacts failed to load. Try re-sync.");
+              setScreen("discovery");
+            }
           }
         }
       } catch {
         if (!cancelled) setApiError("Could not reach PulseChat API.");
       } finally {
+        clearTimeout(bootWatchdog);
         if (!cancelled) setIsBooting(false);
       }
     })();
     return () => {
       cancelled = true;
+      clearTimeout(bootWatchdog);
       if (pollTimer.current) clearTimeout(pollTimer.current);
     };
   }, [loadContacts, refreshMessages]);

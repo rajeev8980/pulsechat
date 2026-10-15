@@ -1,28 +1,44 @@
 import type { Contact, Message, User } from "./types";
 
+const DEFAULT_TIMEOUT_MS = 8000;
+
 async function request<T>(
   path: string,
-  init?: RequestInit,
+  init?: RequestInit & { timeoutMs?: number },
 ): Promise<T> {
-  const res = await fetch(path, {
-    ...init,
-    headers: {
-      "Content-Type": "application/json",
-      ...(init?.headers || {}),
-    },
-    credentials: "same-origin",
-  });
+  const { timeoutMs = DEFAULT_TIMEOUT_MS, ...rest } = init || {};
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), timeoutMs);
 
-  const data = await res.json().catch(() => ({}));
-  if (!res.ok) {
-    const err = new Error(
-      (data as { error?: string }).error || `Request failed (${res.status})`,
-    ) as Error & { status?: number; data?: unknown };
-    err.status = res.status;
-    err.data = data;
-    throw err;
+  try {
+    const res = await fetch(path, {
+      ...rest,
+      signal: rest.signal ?? controller.signal,
+      headers: {
+        "Content-Type": "application/json",
+        ...(rest.headers || {}),
+      },
+      credentials: "same-origin",
+    });
+
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(
+        (data as { error?: string }).error || `Request failed (${res.status})`,
+      ) as Error & { status?: number; data?: unknown };
+      err.status = res.status;
+      err.data = data;
+      throw err;
+    }
+    return data as T;
+  } catch (e) {
+    if (e instanceof DOMException && e.name === "AbortError") {
+      throw new Error("Request timed out — check your connection and retry.");
+    }
+    throw e;
+  } finally {
+    clearTimeout(timer);
   }
-  return data as T;
 }
 
 export const api = {
