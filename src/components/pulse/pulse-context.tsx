@@ -63,7 +63,10 @@ interface PulseContextValue {
   loginCustom: (email: string) => void;
   signOut: () => void;
   resyncContacts: () => void;
-  importPhonebook: (drafts: Array<{ name?: string; email?: string; phone?: string }>) => Promise<void>;
+  importPhonebook: (
+    drafts: Array<{ name?: string; email?: string; phone?: string }>,
+    meta?: { withEmail?: number; phoneOnly?: number },
+  ) => Promise<void>;
   clearSyncError: () => void;
   addContact: (input: {
     name: string;
@@ -325,16 +328,26 @@ export function PulseProvider({ children }: { children: ReactNode }) {
   const importPhonebook = useCallback(
     async (
       drafts: Array<{ name?: string; email?: string; phone?: string }>,
+      meta?: { withEmail?: number; phoneOnly?: number },
     ) => {
       setIsSyncing(true);
       setSyncError(null);
       try {
         const data = await api.importContacts(drafts);
         setContacts(data.contacts);
+        const emailBit =
+          meta?.withEmail != null
+            ? ` · ${meta.withEmail} with email→Pulse`
+            : "";
+        const phoneBit =
+          meta?.phoneOnly != null && meta.phoneOnly > 0
+            ? ` · ${meta.phoneOnly} phone-only→WhatsApp`
+            : "";
         showToast(
           `Synced ${data.imported} new · ${data.updated} updated` +
             (data.skipped ? ` · ${data.skipped} skipped` : "") +
-            " (email + phone)",
+            emailBit +
+            phoneBit,
         );
       } catch (e) {
         setSyncError(errMessage(e, "Phonebook sync failed"));
@@ -349,38 +362,47 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     setIsSyncing(true);
     setSyncError(null);
     try {
-      // Prefer device Contact Picker (Android Chrome) for real email/phone
       const { canPickDeviceContacts, pickDeviceContacts } = await import(
         "@/lib/device-contacts"
       );
       if (canPickDeviceContacts()) {
         try {
-          const drafts = await pickDeviceContacts();
-          if (drafts.length === 0) {
-            showToast("No contacts with email or phone selected");
+          // Must stay in the same user-gesture turn — picker opens here
+          const picked = await pickDeviceContacts();
+          if (picked.drafts.length === 0) {
+            showToast(
+              picked.selected > 0
+                ? "Selected contacts had no email or phone saved on the phone"
+                : "No contacts selected",
+            );
             setIsSyncing(false);
             return;
           }
           setIsSyncing(false);
-          await importPhonebook(drafts);
+          await importPhonebook(picked.drafts, {
+            withEmail: picked.withEmail,
+            phoneOnly: picked.phoneOnly,
+          });
           return;
         } catch (e) {
-          // User cancelled picker — don't treat as hard error
           const msg = errMessage(e, "");
           if (/cancel|abort/i.test(msg)) {
             setIsSyncing(false);
             return;
           }
-          // Fall through to server refresh + UI paste
+          setSyncError(
+            msg ||
+              "Could not read phone contacts. Use Paste import with email lines.",
+          );
+          setIsSyncing(false);
+          return;
         }
       }
 
       const data = await api.resync();
       setContacts(data.contacts);
       showToast(
-        data.contacts.length
-          ? `Phonebook ready — ${data.contacts.length} contact(s). Use Sync / Paste to import email & phone.`
-          : "Tap Sync phone contacts (or Paste) to import email & phone numbers",
+        "This browser cannot open your phonebook. Use Paste import: Name, email, phone",
       );
     } catch (e) {
       setSyncError(errMessage(e, "Phonebook sync failed"));

@@ -152,8 +152,9 @@ export function DiscoveryScreen() {
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Sync phonebook contacts with email and/or phone — Pulse when email
-              exists, WhatsApp when only phone.
+              Tap Sync → select contacts on your phone. Entries with an{" "}
+              <strong className="text-slate-300">email</strong> become Pulse
+              peers; phone-only become WhatsApp.
             </p>
           </div>
         </div>
@@ -171,7 +172,9 @@ export function DiscoveryScreen() {
               <Smartphone className="size-3.5" />
             )}
             <span>
-              {deviceSync ? "Sync phone contacts" : "Sync contacts"}
+              {deviceSync
+                ? "Sync from phone (email + phone)"
+                : "Sync contacts"}
             </span>
           </button>
           <button
