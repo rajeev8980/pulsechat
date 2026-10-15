@@ -58,14 +58,14 @@ export function LandingScreen() {
             onClick={() => openGoogleModal("signin")}
             className="text-xs sm:text-sm font-semibold text-slate-300 hover:text-white px-3 sm:px-3.5 py-2.5 min-h-11 rounded-xl transition hover:bg-white/5 border border-white/10 touch-manipulation"
           >
-            Login with Gmail
+            Sign in
           </button>
           <button
             type="button"
             onClick={() => openGoogleModal("signup")}
             className="text-xs sm:text-sm font-semibold bg-indigo-600 hover:bg-indigo-500 text-white px-3 sm:px-4 py-2.5 min-h-11 rounded-xl transition shadow-md shadow-indigo-600/30 flex items-center gap-2 touch-manipulation"
           >
-            <span className="hidden xs:inline sm:inline">Signup with Gmail</span>
+            <span className="hidden xs:inline sm:inline">Create account</span>
             <span className="sm:hidden">Signup</span>
             <ArrowRight className="size-3" />
           </button>
@@ -104,23 +104,23 @@ export function LandingScreen() {
               className="w-full flex items-center justify-center gap-3 bg-white hover:bg-slate-100 text-slate-800 font-bold py-3.5 px-6 min-h-12 rounded-2xl transition duration-200 shadow-lg active:scale-[0.99] group touch-manipulation text-sm sm:text-base"
             >
               <GoogleMark className="w-5 h-5 transition-transform group-hover:scale-110" />
-              <span>Continue with Google / Gmail</span>
+              <span>Continue with email</span>
             </button>
 
             <div className="flex items-center gap-3">
               <div className="flex-1 h-px bg-slate-700/60" />
               <span className="text-[11px] text-slate-400 uppercase tracking-wider font-semibold font-mono">
-                1-Click Auto Sync
+                Your inbox, your contacts
               </span>
               <div className="flex-1 h-px bg-slate-700/60" />
             </div>
 
             <div className="grid grid-cols-2 gap-2 text-[11px] text-slate-400">
               <div className="flex items-center gap-1.5">
-                <Lock className="size-3 text-emerald-400" /> Zero passwords needed
+                <Lock className="size-3 text-emerald-400" /> No demo accounts
               </div>
               <div className="flex items-center gap-1.5">
-                <Bolt className="size-3 text-indigo-400" /> Instant Contact Match
+                <Bolt className="size-3 text-indigo-400" /> Add people yourself
               </div>
             </div>
           </div>
@@ -206,7 +206,7 @@ export function LandingScreen() {
                 onClick={() => openGoogleModal("signin")}
                 className="text-indigo-400 hover:text-indigo-300 font-bold flex items-center gap-1 transition"
               >
-                <span>Select Gmail Account</span>
+                <span>Sign in with email</span>
                 <ArrowRight className="size-2.5" />
               </button>
             </div>

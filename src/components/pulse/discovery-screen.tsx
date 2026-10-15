@@ -1,10 +1,11 @@
 "use client";
 
-import type { ReactNode } from "react";
+import { FormEvent, type ReactNode, useState } from "react";
 import {
   BookUser,
   Loader2,
   MessageSquareText,
+  Plus,
   RefreshCw,
   Search,
   Users,
@@ -51,6 +52,15 @@ const FILTERS: { key: Platform | "all"; label: string; icon?: ReactNode }[] =
     },
   ];
 
+const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
+  { value: "pulse", label: "Native Pulse" },
+  { value: "whatsapp", label: "WhatsApp" },
+  { value: "telegram", label: "Telegram" },
+  { value: "instagram", label: "Instagram Direct" },
+  { value: "messenger", label: "Messenger" },
+  { value: "sms", label: "Carrier SMS" },
+];
+
 export function DiscoveryScreen() {
   const {
     contacts,
@@ -64,7 +74,14 @@ export function DiscoveryScreen() {
     isSyncing,
     syncError,
     clearSyncError,
+    addContact,
+    isAddingContact,
   } = usePulse();
+
+  const [name, setName] = useState("");
+  const [handle, setHandle] = useState("");
+  const [platform, setPlatform] = useState<Platform>("whatsapp");
+  const [formOpen, setFormOpen] = useState(false);
 
   const filtered = contacts.filter((c) => {
     const matchesFilter =
@@ -79,6 +96,20 @@ export function DiscoveryScreen() {
     return matchesFilter && matchesSearch;
   });
 
+  async function onAdd(e: FormEvent) {
+    e.preventDefault();
+    const contact = await addContact({
+      name,
+      platform,
+      handle: handle.trim() || undefined,
+    });
+    if (contact) {
+      setName("");
+      setHandle("");
+      setFormOpen(false);
+    }
+  }
+
   return (
     <section className="flex-1 max-w-6xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-6 flex flex-col space-y-4 sm:space-y-6 animate-in fade-in duration-300 min-h-0">
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 glass-panel rounded-3xl shadow-xl">
@@ -89,19 +120,27 @@ export function DiscoveryScreen() {
           <div>
             <div className="flex items-center gap-2 flex-wrap">
               <h2 className="text-xl sm:text-2xl font-extrabold text-white">
-                Synced Contacts & Universal Discovery
+                Your Contacts
               </h2>
               <span className="text-xs bg-indigo-500/20 text-indigo-300 border border-indigo-500/30 px-2.5 py-0.5 rounded-full font-bold font-mono">
-                {filtered.length} Synced
+                {filtered.length}
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Synced from your Google Account & multi-messenger phonebook.
+              Add people by name and platform — nothing is pre-seeded.
             </p>
           </div>
         </div>
 
-        <div className="flex items-center gap-3 w-full md:w-auto">
+        <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
+          <button
+            type="button"
+            onClick={() => setFormOpen((v) => !v)}
+            className="flex-1 md:flex-initial px-3.5 py-2.5 min-h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 touch-manipulation"
+          >
+            <Plus className="size-3.5" />
+            <span>{formOpen ? "Hide form" : "Add contact"}</span>
+          </button>
           <button
             type="button"
             onClick={resyncContacts}
@@ -111,7 +150,7 @@ export function DiscoveryScreen() {
             <RefreshCw
               className={cn("size-3.5", isSyncing && "animate-spin")}
             />
-            <span>Re-sync Phonebook</span>
+            <span>Refresh</span>
           </button>
           <button
             type="button"
@@ -123,6 +162,73 @@ export function DiscoveryScreen() {
           </button>
         </div>
       </div>
+
+      {(formOpen || contacts.length === 0) && (
+        <form
+          onSubmit={onAdd}
+          className="glass-panel rounded-3xl p-4 sm:p-5 border border-white/10 space-y-3"
+        >
+          <div className="flex items-center justify-between gap-2">
+            <h3 className="text-sm font-bold text-white">Add a contact</h3>
+            <p className="text-[11px] text-slate-500">
+              Required before you can chat
+            </p>
+          </div>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+            <div>
+              <label className="text-[11px] text-slate-400 block mb-1.5">
+                Name
+              </label>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                required
+                placeholder="Friend's name"
+                className="w-full glass-card text-sm rounded-xl px-3 py-2.5 min-h-11 text-white border border-white/10 bg-transparent placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 block mb-1.5">
+                Platform
+              </label>
+              <select
+                value={platform}
+                onChange={(e) => setPlatform(e.target.value as Platform)}
+                className="w-full glass-card text-sm rounded-xl px-3 py-2.5 min-h-11 text-white border border-white/10 bg-[#0b101d] focus:outline-none focus:border-indigo-500"
+              >
+                {PLATFORM_OPTIONS.map((p) => (
+                  <option key={p.value} value={p.value}>
+                    {p.label}
+                  </option>
+                ))}
+              </select>
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 block mb-1.5">
+                Handle or phone
+              </label>
+              <input
+                value={handle}
+                onChange={(e) => setHandle(e.target.value)}
+                placeholder="@handle or +1…"
+                className="w-full glass-card text-sm rounded-xl px-3 py-2.5 min-h-11 text-white border border-white/10 bg-transparent placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+          </div>
+          <button
+            type="submit"
+            disabled={isAddingContact || !name.trim()}
+            className="w-full sm:w-auto px-4 py-2.5 min-h-11 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-xs font-bold transition flex items-center justify-center gap-2"
+          >
+            {isAddingContact ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Plus className="size-3.5" />
+            )}
+            Add to contacts
+          </button>
+        </form>
+      )}
 
       {syncError && (
         <div className="rounded-2xl border border-rose-500/30 bg-rose-500/10 px-4 py-3 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-sm text-rose-100">
@@ -140,7 +246,7 @@ export function DiscoveryScreen() {
               onClick={resyncContacts}
               className="px-3 py-1.5 rounded-xl text-xs bg-rose-500/30 hover:bg-rose-500/40 font-semibold"
             >
-              Retry sync
+              Retry
             </button>
           </div>
         </div>
@@ -199,7 +305,7 @@ export function DiscoveryScreen() {
           ))}
           <div className="col-span-full flex items-center justify-center gap-2 text-sm text-indigo-300 py-2">
             <Loader2 className="size-4 animate-spin" />
-            Syncing contacts from Gmail & messenger phonebooks…
+            Refreshing your contacts…
           </div>
         </div>
       ) : (
@@ -207,7 +313,9 @@ export function DiscoveryScreen() {
           {filtered.length === 0 ? (
             <div className="col-span-1 md:col-span-2 lg:col-span-3 text-center py-12 text-slate-500 text-sm glass-card rounded-3xl">
               <Users className="size-8 mb-2 text-slate-600 mx-auto block" />
-              No contacts match your current filter or search criteria.
+              {contacts.length === 0
+                ? "No contacts yet. Add someone above to start chatting."
+                : "No contacts match your current filter or search."}
             </div>
           ) : (
             filtered.map((c) => {

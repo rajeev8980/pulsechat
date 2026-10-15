@@ -1,4 +1,4 @@
-import type { Contact, Message, User } from "./types";
+import type { Contact, Message, Platform, User } from "./types";
 
 const DEFAULT_TIMEOUT_MS = 8000;
 
@@ -56,6 +56,16 @@ export const api = {
   logout: () =>
     request<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
   contacts: () => request<{ contacts: Contact[] }>("/api/contacts"),
+  addContact: (body: {
+    name: string;
+    platform: Platform;
+    handle?: string;
+    phone?: string;
+  }) =>
+    request<{ contact: Contact }>("/api/contacts", {
+      method: "POST",
+      body: JSON.stringify(body),
+    }),
   resync: () =>
     request<{ contacts: Contact[] }>("/api/contacts/resync", {
       method: "POST",

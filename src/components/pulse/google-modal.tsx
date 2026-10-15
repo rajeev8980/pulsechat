@@ -1,8 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { ChevronRight, X } from "lucide-react";
-import { GOOGLE_ACCOUNTS } from "@/lib/data";
+import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { usePulse } from "./pulse-context";
@@ -36,12 +35,29 @@ export function GoogleModal() {
     googleIntent,
     closeGoogleModal,
     login,
-    loginCustom,
     isLoggingIn,
   } = usePulse();
-  const [customEmail, setCustomEmail] = useState("");
+  const [name, setName] = useState("");
+  const [email, setEmail] = useState("");
 
   if (!googleModalOpen) return null;
+
+  function submit() {
+    const trimmedEmail = email.trim();
+    const trimmedName = name.trim();
+    if (!trimmedEmail.includes("@")) return;
+    const display =
+      trimmedName ||
+      trimmedEmail
+        .split("@")[0]
+        .replace(/[._]/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
+    login({
+      name: display,
+      email: trimmedEmail,
+      avatar: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(display)}&backgroundColor=4f46e5`,
+    });
+  }
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
@@ -67,13 +83,12 @@ export function GoogleModal() {
               id="google-modal-title"
               className="text-base font-bold text-white leading-tight"
             >
-              {googleIntent === "signup"
-                ? "Sign up with Google"
-                : "Sign in with Google"}
+              {googleIntent === "signup" ? "Create your account" : "Sign in"}
             </h3>
             <p className="text-[11px] text-slate-400">
-              to continue to{" "}
-              <strong className="text-indigo-400">PulseChat</strong>
+              Continue to{" "}
+              <strong className="text-indigo-400">PulseChat</strong> with your
+              email
             </p>
           </div>
         </div>
@@ -81,81 +96,53 @@ export function GoogleModal() {
         {isLoggingIn ? (
           <div className="py-10 text-center space-y-3">
             <div className="mx-auto w-8 h-8 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin" />
-            <p className="text-sm text-slate-300">Syncing Gmail contacts…</p>
-            <p className="text-[11px] text-slate-500 font-mono">
-              Matching 6 platform bridges
-            </p>
+            <p className="text-sm text-slate-300">Setting up your inbox…</p>
           </div>
         ) : (
-          <>
-            <p className="text-[11px] font-semibold uppercase tracking-wider text-slate-400 mb-3 font-mono">
-              Choose an active account
-            </p>
-            <div className="space-y-2.5">
-              {GOOGLE_ACCOUNTS.map((account, i) => (
-                <button
-                  key={account.email}
-                  type="button"
-                  onClick={() => login(account)}
-                  className="w-full p-3 rounded-2xl bg-white/5 hover:bg-white/10 border border-white/10 cursor-pointer flex items-center justify-between transition group text-left"
-                >
-                  <div className="flex items-center gap-3">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={account.avatar}
-                      alt=""
-                      className="w-9 h-9 rounded-full object-cover"
-                    />
-                    <div>
-                      <p className="text-xs font-bold text-white group-hover:text-indigo-300 transition">
-                        {account.name}
-                      </p>
-                      <p className="text-[11px] text-slate-400 font-mono">
-                        {account.email}
-                      </p>
-                    </div>
-                  </div>
-                  {i === 0 ? (
-                    <span className="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">
-                      Default
-                    </span>
-                  ) : (
-                    <ChevronRight className="size-3 text-slate-500 group-hover:text-white transition" />
-                  )}
-                </button>
-              ))}
-            </div>
-
-            <div className="mt-4 pt-3.5 border-t border-white/10">
+          <form
+            className="space-y-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              submit();
+            }}
+          >
+            <div>
               <label className="text-[11px] text-slate-400 block mb-1.5">
-                Or enter another Gmail account:
+                Your name
               </label>
-              <div className="flex gap-2">
-                <Input
-                  type="email"
-                  value={customEmail}
-                  onChange={(e) => setCustomEmail(e.target.value)}
-                  placeholder="name@gmail.com"
-                  className="flex-1 glass-card text-xs rounded-xl px-3 py-2 h-auto text-white border-white/10 bg-transparent"
-                  onKeyDown={(e) => {
-                    if (e.key === "Enter") loginCustom(customEmail);
-                  }}
-                />
-                <Button
-                  type="button"
-                  onClick={() => loginCustom(customEmail)}
-                  className="bg-indigo-600 hover:bg-indigo-500 text-xs px-3.5 py-2 h-auto rounded-xl text-white font-bold"
-                >
-                  Next
-                </Button>
-              </div>
+              <Input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Your name"
+                autoComplete="name"
+                className="w-full glass-card text-sm rounded-xl px-3 py-2.5 h-auto min-h-11 text-white border-white/10 bg-transparent"
+              />
             </div>
-
-            <div className="mt-4 text-[10px] text-slate-500 text-center">
-              By connecting, PulseChat automatically syncs your omnichannel
-              contact directory.
+            <div>
+              <label className="text-[11px] text-slate-400 block mb-1.5">
+                Email
+              </label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder="you@email.com"
+                autoComplete="email"
+                required
+                className="w-full glass-card text-sm rounded-xl px-3 py-2.5 h-auto min-h-11 text-white border-white/10 bg-transparent"
+              />
             </div>
-          </>
+            <Button
+              type="submit"
+              className="w-full bg-indigo-600 hover:bg-indigo-500 text-sm py-3 h-auto min-h-11 rounded-xl text-white font-bold"
+            >
+              Continue
+            </Button>
+            <p className="text-[10px] text-slate-500 text-center">
+              No demo accounts — use your real name and email. Contacts stay
+              empty until you add them.
+            </p>
+          </form>
         )}
       </div>
     </div>

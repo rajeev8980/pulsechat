@@ -1,10 +1,11 @@
 import {
   createInitialMessages,
-  DEFAULT_USER,
+  GUEST_USER,
   INITIAL_CONTACTS,
+  PLATFORM_META,
 } from "@/lib/data";
 import { getAutoReply } from "@/lib/platform";
-import type { Contact, Message, User } from "@/lib/types";
+import type { Contact, Message, Platform, User } from "@/lib/types";
 
 export interface Session {
   id: string;
@@ -83,16 +84,51 @@ export function getContact(id: string): Contact | undefined {
 
 export function resyncContacts(): { ok: true; contacts: Contact[] } | { ok: false; error: string } {
   const store = getStore();
-  // Deterministic occasional failure: fail every 8th resync attempt via flip flag
   store.syncFailOnce = !store.syncFailOnce;
-  if (store.syncFailOnce && Math.random() < 0.15) {
+  if (store.syncFailOnce && Math.random() < 0.08) {
     return {
       ok: false,
       error: "Phonebook sync timed out. Check your connection and retry.",
     };
   }
-  store.contacts = INITIAL_CONTACTS.map((c) => ({ ...c }));
+  // Keep user-added contacts; do not re-inject demo people
   return { ok: true, contacts: listContacts() };
+}
+
+export function addContact(input: {
+  name: string;
+  platform: Platform;
+  handle?: string;
+  phone?: string;
+}): Contact | { error: string } {
+  const name = input.name.trim();
+  if (!name) return { error: "Name is required" };
+  if (!input.platform) return { error: "Platform is required" };
+
+  const meta = PLATFORM_META[input.platform];
+  const handle =
+    input.handle?.trim() ||
+    input.phone?.trim() ||
+    `@${name.toLowerCase().replace(/\s+/g, "_")}`;
+  const phone = input.phone?.trim() || handle;
+
+  const contact: Contact = {
+    id: uid("c"),
+    name,
+    platform: input.platform,
+    handle,
+    phone,
+    avatar: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=6366f1`,
+    status: meta.status,
+    bridgeConnected: input.platform === "pulse",
+    invitationSent: input.platform === "pulse",
+    platformName: meta.platformName,
+  };
+
+  const store = getStore();
+  store.contacts.unshift(contact);
+  if (!store.messages[contact.id]) store.messages[contact.id] = [];
+  return contact;
 }
 
 export function getMessages(contactId: string): Message[] {
@@ -226,4 +262,4 @@ export function scheduleAutoReply(
   });
 }
 
-export { DEFAULT_USER };
+export { GUEST_USER };

@@ -11,7 +11,7 @@ import {
   type ReactNode,
 } from "react";
 import { api } from "@/lib/api";
-import { DEFAULT_USER } from "@/lib/data";
+import { GUEST_USER } from "@/lib/data";
 import type {
   Contact,
   Message,
@@ -54,6 +54,7 @@ interface PulseContextValue {
   isSyncing: boolean;
   isLoggingIn: boolean;
   isSending: boolean;
+  isAddingContact: boolean;
   typingContactId: string | null;
   syncError: string | null;
   apiError: string | null;
@@ -62,6 +63,12 @@ interface PulseContextValue {
   signOut: () => void;
   resyncContacts: () => void;
   clearSyncError: () => void;
+  addContact: (input: {
+    name: string;
+    platform: Platform;
+    handle?: string;
+    phone?: string;
+  }) => Promise<Contact | null>;
   sendMessage: (text: string) => Promise<void>;
   retryMessage: (messageId: string) => Promise<void>;
   acceptBridge: () => void;
@@ -80,10 +87,10 @@ function errMessage(e: unknown, fallback: string) {
 
 export function PulseProvider({ children }: { children: ReactNode }) {
   const [screen, setScreen] = useState<Screen>("landing");
-  const [user, setUser] = useState<User>(DEFAULT_USER);
+  const [user, setUser] = useState<User>(GUEST_USER);
   const [contacts, setContacts] = useState<Contact[]>([]);
   const [messages, setMessages] = useState<Record<string, Message[]>>({});
-  const [activeContactId, setActiveContactId] = useState("c3");
+  const [activeContactId, setActiveContactId] = useState("");
   const [discoveryFilter, setDiscoveryFilter] = useState<Platform | "all">(
     "all",
   );
@@ -102,6 +109,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
   const [isSyncing, setIsSyncing] = useState(false);
   const [isLoggingIn, setIsLoggingIn] = useState(false);
   const [isSending, setIsSending] = useState(false);
+  const [isAddingContact, setIsAddingContact] = useState(false);
   const [typingContactId, setTypingContactId] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
@@ -196,16 +204,17 @@ export function PulseProvider({ children }: { children: ReactNode }) {
           try {
             const list = await loadContacts();
             if (cancelled) return;
-            const first =
-              list.find((c) => c.id === "c3")?.id || list[0]?.id || "c3";
+            const first = list[0]?.id || "";
             setActiveContactId(first);
-            await refreshMessages(first);
+            if (first) await refreshMessages(first);
             if (!cancelled) {
               const wanted =
                 typeof window !== "undefined"
                   ? new URLSearchParams(window.location.search).get("screen")
                   : null;
-              setScreen(wanted === "chat" ? "chat" : "discovery");
+              setScreen(
+                wanted === "chat" && first ? "chat" : "discovery",
+              );
               if (wanted === "chat") setMobileSidebarOpen(true);
             }
           } catch {
@@ -250,13 +259,16 @@ export function PulseProvider({ children }: { children: ReactNode }) {
         const { user: loggedIn } = await api.login(next);
         setUser(loggedIn);
         const list = await loadContacts();
-        const first =
-          list.find((c) => c.id === "c3")?.id || list[0]?.id || "c3";
+        const first = list[0]?.id || "";
         setActiveContactId(first);
-        await refreshMessages(first);
+        if (first) await refreshMessages(first);
         setGoogleModalOpen(false);
         setSyncError(null);
-        showToast(`Signed in as ${loggedIn.email}`);
+        showToast(
+          list.length
+            ? `Signed in as ${loggedIn.email}`
+            : `Signed in as ${loggedIn.email} — add a contact to start chatting`,
+        );
         setScreen("discovery");
       } catch (e) {
         showToast(errMessage(e, "Sign-in failed"));
@@ -271,16 +283,17 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     (email: string) => {
       const trimmed = email.trim();
       if (!trimmed || !trimmed.includes("@")) {
-        showToast("Please enter a valid Gmail address");
+        showToast("Please enter a valid email address");
         return;
       }
       const raw = trimmed.split("@")[0];
-      const displayName = raw.charAt(0).toUpperCase() + raw.slice(1);
+      const displayName = raw
+        .replace(/[._]/g, " ")
+        .replace(/\b\w/g, (c) => c.toUpperCase());
       void login({
         name: displayName,
         email: trimmed,
-        avatar:
-          "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=96&h=96&fit=crop&crop=faces",
+        avatar: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(displayName)}&backgroundColor=4f46e5`,
       });
     },
     [login, showToast],
@@ -292,8 +305,10 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     } catch {
       // ignore
     }
+    setUser(GUEST_USER);
     setContacts([]);
     setMessages({});
+    setActiveContactId("");
     setScreen("landing");
     setMobileSidebarOpen(true);
     showToast("Signed out of PulseChat");
@@ -305,7 +320,12 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     try {
       const data = await api.resync();
       setContacts(data.contacts);
-      showToast("11 contacts synced from Gmail & external phonebook!");
+      const n = data.contacts.length;
+      showToast(
+        n
+          ? `Phonebook refreshed — ${n} contact${n === 1 ? "" : "s"}`
+          : "Phonebook empty — add someone to get started",
+      );
     } catch (e) {
       setSyncError(errMessage(e, "Phonebook sync failed"));
     } finally {
@@ -314,6 +334,36 @@ export function PulseProvider({ children }: { children: ReactNode }) {
   }, [showToast]);
 
   const clearSyncError = useCallback(() => setSyncError(null), []);
+
+  const addContact = useCallback(
+    async (input: {
+      name: string;
+      platform: Platform;
+      handle?: string;
+      phone?: string;
+    }) => {
+      setIsAddingContact(true);
+      try {
+        const { contact } = await api.addContact(input);
+        setContacts((prev) => {
+          if (prev.some((c) => c.id === contact.id)) return prev;
+          return [contact, ...prev];
+        });
+        setMessages((prev) =>
+          prev[contact.id] ? prev : { ...prev, [contact.id]: [] },
+        );
+        if (!activeContactId) setActiveContactId(contact.id);
+        showToast(`Added ${contact.name} on ${contact.platformName}`);
+        return contact;
+      } catch (e) {
+        showToast(errMessage(e, "Could not add contact"));
+        return null;
+      } finally {
+        setIsAddingContact(false);
+      }
+    },
+    [activeContactId, showToast],
+  );
 
   const sendMessage = useCallback(
     async (text: string) => {
@@ -489,6 +539,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     isSyncing,
     isLoggingIn,
     isSending,
+    isAddingContact,
     typingContactId,
     syncError,
     apiError,
@@ -497,6 +548,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     signOut,
     resyncContacts,
     clearSyncError,
+    addContact,
     sendMessage,
     retryMessage,
     acceptBridge,

@@ -12,7 +12,7 @@ export async function POST(req: Request) {
   const email = body?.email?.trim();
   if (!email || !email.includes("@")) {
     return NextResponse.json(
-      { error: "Please enter a valid Gmail address" },
+      { error: "Please enter a valid email address" },
       { status: 400 },
     );
   }
@@ -23,7 +23,7 @@ export async function POST(req: Request) {
 
   const avatar =
     body?.avatar?.trim() ||
-    "https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=96&h=96&fit=crop&crop=faces";
+    `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=4f46e5`;
 
   // Simulate sync latency
   await new Promise((r) => setTimeout(r, 500));
