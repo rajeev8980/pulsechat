@@ -25,9 +25,6 @@ export async function POST(req: Request) {
     body?.avatar?.trim() ||
     `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=4f46e5`;
 
-  // Simulate sync latency
-  await new Promise((r) => setTimeout(r, 500));
-
   const session = createSession({ name, email, avatar });
   const res = NextResponse.json({ user: session.user });
   res.cookies.set(SESSION_COOKIE, session.id, {

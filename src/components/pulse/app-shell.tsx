@@ -40,8 +40,15 @@ function Screens() {
     <>
       {apiError && screen === "landing" && (
         <div className="mx-auto mt-4 max-w-7xl w-full px-4 sm:px-6 lg:px-12">
-          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100">
-            {apiError} You can still sign in — the API will retry on login.
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 px-4 py-3 text-xs text-amber-100 space-y-1">
+            <p>{apiError}</p>
+            <p className="text-amber-200/80">
+              If you installed an older icon, delete it and open the latest live
+              link in Chrome, then Install again. Host:{" "}
+              <span className="font-mono">
+                {typeof window !== "undefined" ? window.location.host : "…"}
+              </span>
+            </p>
           </div>
         </div>
       )}

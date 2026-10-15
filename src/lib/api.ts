@@ -35,6 +35,12 @@ async function request<T>(
     if (e instanceof DOMException && e.name === "AbortError") {
       throw new Error("Request timed out — check your connection and retry.");
     }
+    if (e instanceof TypeError) {
+      // Browser "Failed to fetch" — usually offline or stale installed PWA URL
+      throw new Error(
+        "Can't reach PulseChat server. Open the latest live link in Chrome (not an old home-screen icon) and try again.",
+      );
+    }
     throw e;
   } finally {
     clearTimeout(timer);
@@ -52,6 +58,7 @@ export const api = {
     request<{ user: User }>("/api/auth/login", {
       method: "POST",
       body: JSON.stringify(body),
+      timeoutMs: 15_000,
     }),
   logout: () =>
     request<{ ok: boolean }>("/api/auth/logout", { method: "POST" }),
