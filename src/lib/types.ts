@@ -29,10 +29,20 @@ export interface Contact {
   platformName: string;
 }
 
+/** How the outbound message was (or will be) delivered. */
+export type DeliveryStatus =
+  | "local"
+  | "whatsapp_handoff"
+  | "whatsapp_api"
+  | "sms_handoff"
+  | "simulated";
+
 export interface Message {
   id: string;
   sender: "me" | "them";
   text: string;
   time: string;
   failed?: boolean;
+  /** Outbound delivery truth — never claim platform delivery without this. */
+  delivery?: DeliveryStatus;
 }

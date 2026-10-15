@@ -20,6 +20,7 @@ import {
   getPlatformDeliveryTag,
   getPlatformTagStyles,
 } from "@/lib/platform";
+import { openExternalChat } from "@/lib/whatsapp";
 import { PlatformBadge, PlatformIcon } from "./platform-icon";
 import { usePulse } from "./pulse-context";
 import { cn } from "@/lib/utils";
@@ -380,9 +381,13 @@ export function ChatWorkspace() {
               >
                 <div className="flex justify-center my-2">
                   <span className="text-[10px] font-mono px-3 py-1 rounded-full bg-slate-800/80 text-slate-400 border border-white/5">
-                    {activeContact.platform === "pulse"
-                      ? "End-to-End Encrypted Native PulseChat Session"
-                      : `Bridged via Pulse Gateway to ${activeContact.platformName} (${activeContact.phone})`}
+                    {activeContact.platform === "whatsapp"
+                      ? `Real WhatsApp: Send opens WhatsApp for ${activeContact.phone} — they only get it after you tap Send there`
+                      : activeContact.platform === "sms"
+                        ? `Real SMS: Send opens your Messages app for ${activeContact.phone}`
+                        : activeContact.platform === "pulse"
+                          ? "End-to-End Encrypted Native PulseChat Session"
+                          : `${activeContact.platformName} is saved in PulseChat only (no live API yet)`}
                   </span>
                 </div>
 
@@ -428,11 +433,48 @@ export function ChatWorkspace() {
                           <RefreshCw className="size-3" />
                         </button>
                       ) : (
-                        <div className="flex items-center gap-1 text-[10px] text-slate-400 mt-1 font-mono">
-                          <CheckCheck className="size-3 text-emerald-400" />
-                          <span>
-                            {getPlatformDeliveryTag(activeContact.platform)}
-                          </span>
+                        <div className="flex flex-col items-end gap-1 mt-1">
+                          <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono">
+                            {msg.delivery === "whatsapp_api" ? (
+                              <CheckCheck className="size-3 text-emerald-400" />
+                            ) : (
+                              <AlertTriangle className="size-3 text-amber-400" />
+                            )}
+                            <span>
+                              {getPlatformDeliveryTag(
+                                activeContact.platform,
+                                msg.delivery,
+                              )}
+                            </span>
+                          </div>
+                          {(activeContact.platform === "whatsapp" ||
+                            activeContact.platform === "sms") &&
+                            msg.delivery !== "whatsapp_api" && (
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  const r = openExternalChat(
+                                    activeContact.platform === "sms"
+                                      ? "sms"
+                                      : "whatsapp",
+                                    activeContact.phone || activeContact.handle,
+                                    msg.text,
+                                  );
+                                  showToast(
+                                    r.ok
+                                      ? activeContact.platform === "whatsapp"
+                                        ? "WhatsApp opened — tap Send to deliver"
+                                        : "Messages opened — tap Send to deliver"
+                                      : r.error,
+                                  );
+                                }}
+                                className="text-[10px] font-bold text-emerald-300 hover:text-emerald-200 underline"
+                              >
+                                {activeContact.platform === "whatsapp"
+                                  ? "Open in WhatsApp again"
+                                  : "Open in Messages again"}
+                              </button>
+                            )}
                         </div>
                       )}
                     </div>
@@ -543,49 +585,51 @@ export function ChatWorkspace() {
 }
 
 function BridgeBanner() {
-  const { activeContact, openSimulator } = usePulse();
+  const { activeContact, openSimulator, showToast } = usePulse();
   if (!activeContact || activeContact.platform === "pulse") return null;
 
-  if (activeContact.platform === "sms") {
+  if (activeContact.platform === "whatsapp") {
     return (
-      <div className="px-4 py-2 text-xs flex items-center justify-between bg-teal-500/15 border-b border-teal-500/25 text-teal-200 shrink-0 gap-2">
+      <div className="px-4 py-2.5 text-xs flex items-center justify-between bg-emerald-500/15 border-b border-emerald-500/25 text-emerald-100 shrink-0 gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="w-2 h-2 rounded-full bg-teal-400 animate-pulse shrink-0" />
-          <span className="truncate">
-            <strong>Carrier Direct:</strong> Connected to cellular SMS gateway (
-            {activeContact.phone}). Messages transmit without data connection
-            required by recipient.
+          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
+          <span className="leading-snug">
+            <strong>Real WhatsApp:</strong> PulseChat opens WhatsApp on{" "}
+            <em>your</em> phone with the message. {activeContact.name} only
+            receives it after you tap <strong>Send</strong> in WhatsApp (
+            {activeContact.phone}).
           </span>
         </div>
         <button
           type="button"
-          onClick={openSimulator}
-          className="font-bold underline text-white hover:text-teal-300 shrink-0"
+          onClick={() => {
+            const r = openExternalChat(
+              "whatsapp",
+              activeContact.phone || activeContact.handle,
+              "",
+            );
+            showToast(
+              r.ok ? "Opening WhatsApp chat…" : r.error,
+            );
+          }}
+          className="font-bold underline text-white hover:text-emerald-200 shrink-0"
         >
-          Simulate phone
+          Open WhatsApp
         </button>
       </div>
     );
   }
 
-  if (activeContact.bridgeConnected) {
+  if (activeContact.platform === "sms") {
     return (
-      <div className="px-4 py-2 text-xs flex items-center justify-between bg-emerald-500/15 border-b border-emerald-500/25 text-emerald-200 shrink-0 gap-2">
+      <div className="px-4 py-2 text-xs flex items-center justify-between bg-teal-500/15 border-b border-teal-500/25 text-teal-200 shrink-0 gap-2">
         <div className="flex items-center gap-2 min-w-0">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse shrink-0" />
+          <span className="w-2 h-2 rounded-full bg-teal-400 shrink-0" />
           <span className="truncate">
-            <strong>Bridge Active:</strong> Connected to {activeContact.name}
-            &apos;s {activeContact.platformName}. Two-way instant messaging
-            unlocked!
+            <strong>Real SMS:</strong> Send opens your phone&apos;s Messages app
+            for {activeContact.phone}. Tap Send there to deliver.
           </span>
         </div>
-        <button
-          type="button"
-          onClick={openSimulator}
-          className="font-bold underline text-emerald-300 hover:text-white shrink-0"
-        >
-          View recipient phone
-        </button>
       </div>
     );
   }
@@ -595,9 +639,9 @@ function BridgeBanner() {
       <div className="flex items-center gap-2 min-w-0">
         <AlertTriangle className="size-3.5 text-amber-400 shrink-0" />
         <span className="truncate">
-          <strong>Invitation Pending Acceptance:</strong> A 1-time message push
-          will notify {activeContact.name} on {activeContact.platformName}. Once
-          accepted, chat is permanently connected.
+          <strong>{activeContact.platformName}:</strong> messages stay in
+          PulseChat for now (no live API). Simulator replies are fake and only
+          for UI demos.
         </span>
       </div>
       <button
@@ -605,7 +649,7 @@ function BridgeBanner() {
         onClick={openSimulator}
         className="font-bold underline text-amber-300 hover:text-white shrink-0"
       >
-        Open recipient simulator
+        Simulator
       </button>
     </div>
   );

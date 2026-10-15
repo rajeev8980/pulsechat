@@ -80,18 +80,23 @@ export const api = {
       contact: Contact;
       invitationSent?: boolean;
       autoReplyPending?: boolean;
+      needsClientHandoff?: "whatsapp" | "sms" | null;
+      cloudError?: string;
+      whatsappCloudConfigured?: boolean;
     }>(`/api/messages/${contactId}`, {
       method: "POST",
       body: JSON.stringify({ text }),
     }),
   retryMessage: (contactId: string, messageId: string) =>
-    request<{ message: Message; contact: Contact; autoReplyPending?: boolean }>(
-      `/api/messages/${contactId}/retry`,
-      {
-        method: "POST",
-        body: JSON.stringify({ messageId }),
-      },
-    ),
+    request<{
+      message: Message;
+      contact: Contact;
+      autoReplyPending?: boolean;
+      needsClientHandoff?: "whatsapp" | "sms" | null;
+    }>(`/api/messages/${contactId}/retry`, {
+      method: "POST",
+      body: JSON.stringify({ messageId }),
+    }),
   pollMessages: (contactId: string, afterId?: string) =>
     request<{ messages: Message[]; contact: Contact }>(
       `/api/messages/${contactId}${afterId ? `?after=${afterId}` : ""}`,

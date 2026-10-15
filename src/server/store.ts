@@ -5,7 +5,13 @@ import {
   PLATFORM_META,
 } from "@/lib/data";
 import { getAutoReply } from "@/lib/platform";
-import type { Contact, Message, Platform, User } from "@/lib/types";
+import type {
+  Contact,
+  DeliveryStatus,
+  Message,
+  Platform,
+  User,
+} from "@/lib/types";
 
 export interface Session {
   id: string;
@@ -43,6 +49,11 @@ export function getStore(): StoreState {
 
 function uid(prefix: string) {
   return `${prefix}-${Math.random().toString(36).slice(2, 10)}`;
+}
+
+function normalizeDigits(raw: string) {
+  const d = raw.replace(/\D/g, "");
+  return d.length >= 10 && d.length <= 15 ? d : "";
 }
 
 function nowTime() {
@@ -112,6 +123,16 @@ export function addContact(input: {
     `@${name.toLowerCase().replace(/\s+/g, "_")}`;
   const phone = input.phone?.trim() || handle;
 
+  if (
+    (input.platform === "whatsapp" || input.platform === "sms") &&
+    !normalizeDigits(phone)
+  ) {
+    return {
+      error:
+        "WhatsApp/SMS contacts need a phone number with country code (e.g. +919334803286).",
+    };
+  }
+
   const contact: Contact = {
     id: uid("c"),
     name,
@@ -119,7 +140,12 @@ export function addContact(input: {
     handle,
     phone,
     avatar: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=6366f1`,
-    status: meta.status,
+    status:
+      input.platform === "whatsapp"
+        ? "WhatsApp • Opens on your phone"
+        : input.platform === "sms"
+          ? "SMS • Opens Messages app"
+          : meta.status,
     bridgeConnected: input.platform === "pulse",
     invitationSent: input.platform === "pulse",
     platformName: meta.platformName,
@@ -138,8 +164,15 @@ export function getMessages(contactId: string): Message[] {
 export function sendMessage(
   contactId: string,
   text: string,
+  opts?: { delivery?: DeliveryStatus },
 ):
-  | { ok: true; message: Message; contact: Contact; invitationSent?: boolean }
+  | {
+      ok: true;
+      message: Message;
+      contact: Contact;
+      invitationSent?: boolean;
+      needsClientHandoff?: "whatsapp" | "sms";
+    }
   | { ok: false; error: string; message?: Message } {
   const store = getStore();
   const contact = store.contacts.find((c) => c.id === contactId);
@@ -153,12 +186,28 @@ export function sendMessage(
     ? trimmed.replace(/^\/fail\s*/i, "") || "Failed test message"
     : trimmed;
 
+  let delivery: DeliveryStatus =
+    opts?.delivery ||
+    (contact.platform === "pulse" ? "local" : "local");
+
+  let needsClientHandoff: "whatsapp" | "sms" | undefined;
+  if (!opts?.delivery && !shouldFail) {
+    if (contact.platform === "whatsapp") {
+      needsClientHandoff = "whatsapp";
+      delivery = "whatsapp_handoff";
+    } else if (contact.platform === "sms") {
+      needsClientHandoff = "sms";
+      delivery = "sms_handoff";
+    }
+  }
+
   const message: Message = {
     id: uid("msg"),
     sender: "me",
     text: displayText,
     time: nowTime(),
     failed: shouldFail || undefined,
+    delivery: shouldFail ? undefined : delivery,
   };
 
   if (!store.messages[contactId]) store.messages[contactId] = [];
@@ -172,6 +221,7 @@ export function sendMessage(
     };
   }
 
+  // Do not pretend an external bridge is live — only mark invite intent.
   let invitationSent = false;
   if (!contact.bridgeConnected && contact.platform !== "pulse") {
     contact.invitationSent = true;
@@ -183,7 +233,23 @@ export function sendMessage(
     message,
     contact: { ...contact },
     invitationSent,
+    needsClientHandoff,
   };
+}
+
+export function updateMessageDelivery(
+  contactId: string,
+  messageId: string,
+  delivery: DeliveryStatus,
+): Message | null {
+  const store = getStore();
+  const thread = store.messages[contactId];
+  if (!thread) return null;
+  const msg = thread.find((m) => m.id === messageId);
+  if (!msg) return null;
+  msg.delivery = delivery;
+  msg.failed = undefined;
+  return { ...msg };
 }
 
 export function retryMessage(
@@ -229,8 +295,9 @@ export function simulateReply(
   const message: Message = {
     id: uid("msg"),
     sender: "them",
-    text: getAutoReply(contact.platform),
+    text: `[Simulated] ${getAutoReply(contact.platform)}`,
     time: nowTime(),
+    delivery: "simulated",
   };
   if (!store.messages[contactId]) store.messages[contactId] = [];
   store.messages[contactId].push(message);
@@ -249,11 +316,13 @@ export function scheduleAutoReply(
         resolve(null);
         return;
       }
+      // Auto-replies are simulation-only and must never look like real WhatsApp.
       const message: Message = {
         id: uid("msg"),
         sender: "them",
-        text: getAutoReply(contact.platform),
+        text: `[Simulated] ${getAutoReply(contact.platform)}`,
         time: nowTime(),
+        delivery: "simulated",
       };
       if (!store.messages[contactId]) store.messages[contactId] = [];
       store.messages[contactId].push(message);

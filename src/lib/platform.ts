@@ -1,4 +1,4 @@
-import type { Platform } from "./types";
+import type { DeliveryStatus, Platform } from "./types";
 
 export function getPlatformBadgeClass(platform: Platform): string {
   switch (platform) {
@@ -34,20 +34,32 @@ export function getPlatformTagStyles(platform: Platform): string {
   }
 }
 
-export function getPlatformDeliveryTag(platform: Platform): string {
+export function getPlatformDeliveryTag(
+  platform: Platform,
+  delivery?: DeliveryStatus,
+): string {
+  if (delivery === "whatsapp_api") return "Sent via WhatsApp Cloud API ✓✓";
+  if (delivery === "whatsapp_handoff")
+    return "Opened in WhatsApp — tap Send there to deliver";
+  if (delivery === "sms_handoff")
+    return "Opened SMS app — tap Send to deliver";
+  if (delivery === "simulated") return "Simulated in PulseChat only";
+  if (delivery === "local" && platform === "pulse")
+    return "Saved in PulseChat ✓✓";
+
   switch (platform) {
     case "whatsapp":
-      return "Delivered via WhatsApp ✓✓";
+      return "Not sent to WhatsApp yet — use Send to open WhatsApp";
     case "telegram":
-      return "Delivered via Telegram ✓✓";
+      return "Saved in PulseChat (Telegram API not connected)";
     case "instagram":
-      return "Delivered via Instagram DM";
+      return "Saved in PulseChat (Instagram API not connected)";
     case "messenger":
-      return "Delivered via Messenger";
+      return "Saved in PulseChat (Messenger API not connected)";
     case "sms":
-      return "Sent via Carrier SMS";
+      return "Not sent via SMS yet — use Send to open Messages";
     default:
-      return "Delivered via Pulse Encrypted ✓✓";
+      return "Saved in PulseChat ✓✓";
   }
 }
 

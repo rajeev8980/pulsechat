@@ -20,6 +20,7 @@ import type {
   SidebarFilter,
   User,
 } from "@/lib/types";
+import { openExternalChat } from "@/lib/whatsapp";
 
 interface PulseContextValue {
   screen: Screen;
@@ -365,11 +366,35 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     [activeContactId, showToast],
   );
 
+  const handoffToDevice = useCallback(
+    (platform: "whatsapp" | "sms", phone: string, text: string) => {
+      const result = openExternalChat(platform, phone, text);
+      if (!result.ok) {
+        showToast(result.error);
+        return false;
+      }
+      showToast(
+        platform === "whatsapp"
+          ? "WhatsApp opened — tap Send there so they receive it"
+          : "Messages app opened — tap Send to deliver",
+      );
+      return true;
+    },
+    [showToast],
+  );
+
   const sendMessage = useCallback(
     async (text: string) => {
       if (!activeContact) return;
       const contactId = activeContact.id;
-      const baseline = (messages[contactId] || []).length;
+      const phone = activeContact.phone || activeContact.handle;
+      const platform = activeContact.platform;
+
+      // Open WhatsApp / SMS from the user gesture first (real delivery path).
+      if (platform === "whatsapp" || platform === "sms") {
+        handoffToDevice(platform, phone, text);
+      }
+
       setIsSending(true);
       try {
         const data = await api.sendMessage(contactId, text);
@@ -378,13 +403,19 @@ export function PulseProvider({ children }: { children: ReactNode }) {
           [contactId]: [...(prev[contactId] || []), data.message],
         }));
         upsertContact(data.contact);
-        if (data.invitationSent) {
-          showToast(
-            `1-Tap notification delivered to ${data.contact.name}'s ${data.contact.platformName}!`,
-          );
-        }
-        if (data.autoReplyPending) {
-          void waitForAutoReply(contactId, baseline + 1);
+
+        if (data.message.delivery === "whatsapp_api") {
+          showToast(`Sent to WhatsApp for ${data.contact.name}`);
+        } else if (
+          data.needsClientHandoff === "whatsapp" ||
+          data.needsClientHandoff === "sms"
+        ) {
+          // Handoff already attempted above; if API says cloud failed, reopen.
+          if (data.cloudError) {
+            handoffToDevice(data.needsClientHandoff, phone, text);
+          }
+        } else if (platform === "pulse") {
+          showToast("Message saved in PulseChat");
         }
       } catch (e) {
         const err = e as Error & {
@@ -396,21 +427,27 @@ export function PulseProvider({ children }: { children: ReactNode }) {
             [contactId]: [...(prev[contactId] || []), err.data!.message!],
           }));
         }
-        showToast(errMessage(e, "Message failed to deliver"));
+        showToast(errMessage(e, "Message failed to save"));
       } finally {
         setIsSending(false);
       }
     },
-    [activeContact, messages, showToast, upsertContact, waitForAutoReply],
+    [activeContact, handoffToDevice, showToast, upsertContact],
   );
 
   const retryMessage = useCallback(
     async (messageId: string) => {
       if (!activeContact) return;
       const contactId = activeContact.id;
-      const baseline = (messages[contactId] || []).filter(
-        (m) => m.id !== messageId,
-      ).length;
+      const failed = (messages[contactId] || []).find((m) => m.id === messageId);
+      const phone = activeContact.phone || activeContact.handle;
+
+      if (activeContact.platform === "whatsapp" && failed?.text) {
+        handoffToDevice("whatsapp", phone, failed.text);
+      } else if (activeContact.platform === "sms" && failed?.text) {
+        handoffToDevice("sms", phone, failed.text);
+      }
+
       setMessages((prev) => ({
         ...prev,
         [contactId]: (prev[contactId] || []).filter((m) => m.id !== messageId),
@@ -423,9 +460,6 @@ export function PulseProvider({ children }: { children: ReactNode }) {
           [contactId]: [...(prev[contactId] || []), data.message],
         }));
         upsertContact(data.contact);
-        if (data.autoReplyPending) {
-          void waitForAutoReply(contactId, baseline + 1);
-        }
       } catch (e) {
         showToast(errMessage(e, "Retry failed"));
         await refreshMessages(contactId);
@@ -435,11 +469,11 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     },
     [
       activeContact,
+      handoffToDevice,
       messages,
       refreshMessages,
       showToast,
       upsertContact,
-      waitForAutoReply,
     ],
   );
 

@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { readSession } from "@/server/session";
-import { retryMessage, scheduleAutoReply } from "@/server/store";
+import { getContact, retryMessage } from "@/server/store";
+import { isWhatsAppCloudConfigured } from "@/server/whatsapp-cloud";
 
 type Params = { params: Promise<{ contactId: string }> };
 
@@ -19,20 +20,24 @@ export async function POST(req: Request, { params }: Params) {
     return NextResponse.json({ error: "messageId required" }, { status: 400 });
   }
 
-  await new Promise((r) => setTimeout(r, 280));
+  const contact = getContact(contactId);
   const result = retryMessage(contactId, body.messageId);
   if (!result.ok) {
     return NextResponse.json({ error: result.error }, { status: 400 });
   }
 
-  const autoReplyPending = Boolean(result.contact.bridgeConnected);
-  if (autoReplyPending) {
-    void scheduleAutoReply(contactId);
-  }
+  const needsClientHandoff =
+    contact?.platform === "whatsapp"
+      ? ("whatsapp" as const)
+      : contact?.platform === "sms"
+        ? ("sms" as const)
+        : null;
 
   return NextResponse.json({
     message: result.message,
     contact: result.contact,
-    autoReplyPending,
+    autoReplyPending: false,
+    needsClientHandoff,
+    whatsappCloudConfigured: isWhatsAppCloudConfigured(),
   });
 }

@@ -102,6 +102,10 @@ export function DiscoveryScreen() {
       name,
       platform,
       handle: handle.trim() || undefined,
+      phone:
+        platform === "whatsapp" || platform === "sms"
+          ? handle.trim()
+          : undefined,
     });
     if (contact) {
       setName("");
@@ -205,12 +209,24 @@ export function DiscoveryScreen() {
             </div>
             <div>
               <label className="text-[11px] text-slate-400 block mb-1.5">
-                Handle or phone
+                {platform === "whatsapp" || platform === "sms"
+                  ? "Phone (with country code)"
+                  : "Handle or phone"}
               </label>
               <input
                 value={handle}
                 onChange={(e) => setHandle(e.target.value)}
-                placeholder="@handle or +1…"
+                required={platform === "whatsapp" || platform === "sms"}
+                placeholder={
+                  platform === "whatsapp" || platform === "sms"
+                    ? "+919334803286"
+                    : "@handle or +1…"
+                }
+                inputMode={
+                  platform === "whatsapp" || platform === "sms"
+                    ? "tel"
+                    : "text"
+                }
                 className="w-full glass-card text-sm rounded-xl px-3 py-2.5 min-h-11 text-white border border-white/10 bg-transparent placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />
             </div>
@@ -329,13 +345,21 @@ export function DiscoveryScreen() {
               } else if (c.bridgeConnected) {
                 bridgeBadge = (
                   <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1 font-semibold">
-                    Bridge Connected
+                    {c.platform === "whatsapp"
+                      ? "WhatsApp handoff"
+                      : "Connected (sim)"}
+                  </span>
+                );
+              } else if (c.platform === "whatsapp") {
+                bridgeBadge = (
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1 font-semibold">
+                    Opens WhatsApp
                   </span>
                 );
               } else {
                 bridgeBadge = (
                   <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1 font-semibold">
-                    1-Tap Invite Ready
+                    In-app only
                   </span>
                 );
               }
