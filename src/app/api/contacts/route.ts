@@ -31,10 +31,11 @@ export async function POST(req: Request) {
     platform?: string;
     handle?: string;
     phone?: string;
+    email?: string;
   } | null;
 
   const platform = body?.platform as Platform | undefined;
-  if (!platform || !PLATFORMS.includes(platform)) {
+  if (platform && !PLATFORMS.includes(platform)) {
     return NextResponse.json(
       { error: "Choose a valid platform" },
       { status: 400 },
@@ -46,6 +47,7 @@ export async function POST(req: Request) {
     platform,
     handle: body?.handle,
     phone: body?.phone,
+    email: body?.email,
   });
 
   if ("error" in result) {

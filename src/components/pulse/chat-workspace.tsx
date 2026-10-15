@@ -344,7 +344,15 @@ export function ChatWorkspace() {
                       </span>
                       <span className="text-slate-600">•</span>
                       <span className="font-mono text-slate-400 truncate">
-                        {activeContact.handle}
+                        {[
+                          activeContact.email || activeContact.peerEmail,
+                          activeContact.phone &&
+                          !activeContact.phone.includes("@")
+                            ? activeContact.phone
+                            : null,
+                        ]
+                          .filter(Boolean)
+                          .join(" · ") || activeContact.handle}
                       </span>
                     </div>
                   </div>

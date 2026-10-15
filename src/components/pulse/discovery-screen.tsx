@@ -1,6 +1,6 @@
 "use client";
 
-import { FormEvent, type ReactNode, useState } from "react";
+import { FormEvent, type ReactNode, useMemo, useState } from "react";
 import {
   BookUser,
   Loader2,
@@ -8,11 +8,16 @@ import {
   Plus,
   RefreshCw,
   Search,
+  Smartphone,
   Users,
 } from "lucide-react";
 import { FaFacebookMessenger, FaInstagram, FaTelegram, FaWhatsapp } from "react-icons/fa6";
 import { MdSms } from "react-icons/md";
 import type { Platform } from "@/lib/types";
+import {
+  canPickDeviceContacts,
+  parseContactPaste,
+} from "@/lib/device-contacts";
 import { PlatformBadge } from "./platform-icon";
 import { usePulse } from "./pulse-context";
 import { cn } from "@/lib/utils";
@@ -52,7 +57,8 @@ const FILTERS: { key: Platform | "all"; label: string; icon?: ReactNode }[] =
     },
   ];
 
-const PLATFORM_OPTIONS: { value: Platform; label: string }[] = [
+const PLATFORM_OPTIONS: { value: Platform | "auto"; label: string }[] = [
+  { value: "auto", label: "Auto (email→Pulse, phone→WhatsApp)" },
   { value: "pulse", label: "Native Pulse" },
   { value: "whatsapp", label: "WhatsApp" },
   { value: "telegram", label: "Telegram" },
@@ -71,6 +77,7 @@ export function DiscoveryScreen() {
     setScreen,
     startChat,
     resyncContacts,
+    importPhonebook,
     isSyncing,
     syncError,
     clearSyncError,
@@ -79,9 +86,14 @@ export function DiscoveryScreen() {
   } = usePulse();
 
   const [name, setName] = useState("");
-  const [handle, setHandle] = useState("");
-  const [platform, setPlatform] = useState<Platform>("pulse");
+  const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
+  const [platform, setPlatform] = useState<Platform | "auto">("auto");
   const [formOpen, setFormOpen] = useState(false);
+  const [pasteOpen, setPasteOpen] = useState(false);
+  const [pasteText, setPasteText] = useState("");
+
+  const deviceSync = useMemo(() => canPickDeviceContacts(), []);
 
   const filtered = contacts.filter((c) => {
     const matchesFilter =
@@ -91,6 +103,7 @@ export function DiscoveryScreen() {
       !q ||
       c.name.toLowerCase().includes(q) ||
       c.handle.toLowerCase().includes(q) ||
+      (c.email || "").toLowerCase().includes(q) ||
       c.phone.toLowerCase().includes(q) ||
       c.platformName.toLowerCase().includes(q);
     return matchesFilter && matchesSearch;
@@ -98,22 +111,28 @@ export function DiscoveryScreen() {
 
   async function onAdd(e: FormEvent) {
     e.preventDefault();
+    if (!email.trim() && !phone.trim()) return;
     const contact = await addContact({
       name,
-      platform,
-      handle: handle.trim() || undefined,
-      phone:
-        platform === "whatsapp" ||
-        platform === "sms" ||
-        platform === "pulse"
-          ? handle.trim()
-          : undefined,
+      platform: platform === "auto" ? undefined : platform,
+      email: email.trim() || undefined,
+      phone: phone.trim() || undefined,
+      handle: email.trim() || phone.trim() || undefined,
     });
     if (contact) {
       setName("");
-      setHandle("");
+      setEmail("");
+      setPhone("");
       setFormOpen(false);
     }
+  }
+
+  async function onPasteImport() {
+    const drafts = parseContactPaste(pasteText);
+    if (drafts.length === 0) return;
+    await importPhonebook(drafts);
+    setPasteText("");
+    setPasteOpen(false);
   }
 
   return (
@@ -133,8 +152,8 @@ export function DiscoveryScreen() {
               </span>
             </div>
             <p className="text-xs text-slate-400 mt-0.5">
-              Add a Pulse friend by their email for live Pulse↔Pulse chat, or
-              WhatsApp by phone.
+              Sync phonebook contacts with email and/or phone — Pulse when email
+              exists, WhatsApp when only phone.
             </p>
           </div>
         </div>
@@ -142,22 +161,34 @@ export function DiscoveryScreen() {
         <div className="flex items-center gap-3 w-full md:w-auto flex-wrap">
           <button
             type="button"
-            onClick={() => setFormOpen((v) => !v)}
-            className="flex-1 md:flex-initial px-3.5 py-2.5 min-h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 touch-manipulation"
+            onClick={resyncContacts}
+            disabled={isSyncing}
+            className="flex-1 md:flex-initial px-3.5 py-2.5 min-h-11 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold transition shadow-md shadow-emerald-600/20 flex items-center justify-center gap-2 disabled:opacity-60 touch-manipulation"
           >
-            <Plus className="size-3.5" />
-            <span>{formOpen ? "Hide form" : "Add contact"}</span>
+            {isSyncing ? (
+              <Loader2 className="size-3.5 animate-spin" />
+            ) : (
+              <Smartphone className="size-3.5" />
+            )}
+            <span>
+              {deviceSync ? "Sync phone contacts" : "Sync contacts"}
+            </span>
           </button>
           <button
             type="button"
-            onClick={resyncContacts}
-            disabled={isSyncing}
-            className="px-3.5 py-2.5 min-h-11 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-white/10 transition flex items-center gap-2 disabled:opacity-60 touch-manipulation"
+            onClick={() => setPasteOpen((v) => !v)}
+            className="px-3.5 py-2.5 min-h-11 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-white/10 transition flex items-center gap-2 touch-manipulation"
           >
-            <RefreshCw
-              className={cn("size-3.5", isSyncing && "animate-spin")}
-            />
-            <span>Refresh</span>
+            <RefreshCw className="size-3.5" />
+            <span>Paste import</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setFormOpen((v) => !v)}
+            className="px-3.5 py-2.5 min-h-11 rounded-xl bg-slate-800/80 hover:bg-slate-700 text-slate-300 text-xs font-semibold border border-white/10 transition flex items-center gap-2 touch-manipulation"
+          >
+            <Plus className="size-3.5" />
+            <span>{formOpen ? "Hide" : "Add one"}</span>
           </button>
           <button
             type="button"
@@ -165,10 +196,40 @@ export function DiscoveryScreen() {
             className="flex-1 md:flex-initial px-4 py-2.5 min-h-11 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold transition shadow-md shadow-indigo-600/30 flex items-center justify-center gap-2 touch-manipulation"
           >
             <MessageSquareText className="size-3.5" />
-            <span>Open Chat Workspace</span>
+            <span>Open Chat</span>
           </button>
         </div>
       </div>
+
+      {pasteOpen && (
+        <div className="glass-panel rounded-3xl p-4 sm:p-5 border border-white/10 space-y-3">
+          <h3 className="text-sm font-bold text-white">
+            Paste contacts (email and/or phone)
+          </h3>
+          <p className="text-[11px] text-slate-500">
+            One per line:{" "}
+            <code className="text-slate-400">Name, email, phone</code> — e.g.{" "}
+            <code className="text-slate-400">
+              Raushan, raushan@email.com, +919334803286
+            </code>
+          </p>
+          <textarea
+            value={pasteText}
+            onChange={(e) => setPasteText(e.target.value)}
+            rows={5}
+            placeholder={"Raushan, friend@email.com, +919334803286\nAlex, alex@mail.com\nSam, , +15551234567"}
+            className="w-full glass-card text-sm rounded-xl px-3 py-2.5 text-white border border-white/10 bg-transparent placeholder-slate-500 focus:outline-none focus:border-indigo-500 font-mono"
+          />
+          <button
+            type="button"
+            disabled={isSyncing || !pasteText.trim()}
+            onClick={() => void onPasteImport()}
+            className="px-4 py-2.5 min-h-11 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-xs font-bold"
+          >
+            Import pasted contacts
+          </button>
+        </div>
+      )}
 
       {(formOpen || contacts.length === 0) && (
         <form
@@ -178,10 +239,10 @@ export function DiscoveryScreen() {
           <div className="flex items-center justify-between gap-2">
             <h3 className="text-sm font-bold text-white">Add a contact</h3>
             <p className="text-[11px] text-slate-500">
-              Required before you can chat
+              Fill email and/or phone
             </p>
           </div>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             <div>
               <label className="text-[11px] text-slate-400 block mb-1.5">
                 Name
@@ -196,11 +257,39 @@ export function DiscoveryScreen() {
             </div>
             <div>
               <label className="text-[11px] text-slate-400 block mb-1.5">
+                Email
+              </label>
+              <input
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                placeholder="friend@email.com"
+                autoComplete="email"
+                className="w-full glass-card text-sm rounded-xl px-3 py-2.5 min-h-11 text-white border border-white/10 bg-transparent placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 block mb-1.5">
+                Phone
+              </label>
+              <input
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                type="tel"
+                inputMode="tel"
+                placeholder="+919334803286"
+                className="w-full glass-card text-sm rounded-xl px-3 py-2.5 min-h-11 text-white border border-white/10 bg-transparent placeholder-slate-500 focus:outline-none focus:border-indigo-500"
+              />
+            </div>
+            <div>
+              <label className="text-[11px] text-slate-400 block mb-1.5">
                 Platform
               </label>
               <select
                 value={platform}
-                onChange={(e) => setPlatform(e.target.value as Platform)}
+                onChange={(e) =>
+                  setPlatform(e.target.value as Platform | "auto")
+                }
                 className="w-full glass-card text-sm rounded-xl px-3 py-2.5 min-h-11 text-white border border-white/10 bg-[#0b101d] focus:outline-none focus:border-indigo-500"
               >
                 {PLATFORM_OPTIONS.map((p) => (
@@ -210,45 +299,14 @@ export function DiscoveryScreen() {
                 ))}
               </select>
             </div>
-            <div>
-              <label className="text-[11px] text-slate-400 block mb-1.5">
-                {platform === "pulse"
-                  ? "Their PulseChat email"
-                  : platform === "whatsapp" || platform === "sms"
-                    ? "Phone (with country code)"
-                    : "Handle or phone"}
-              </label>
-              <input
-                value={handle}
-                onChange={(e) => setHandle(e.target.value)}
-                required={
-                  platform === "whatsapp" ||
-                  platform === "sms" ||
-                  platform === "pulse"
-                }
-                type={platform === "pulse" ? "email" : "text"}
-                placeholder={
-                  platform === "pulse"
-                    ? "friend@email.com"
-                    : platform === "whatsapp" || platform === "sms"
-                      ? "+919334803286"
-                      : "@handle or +1…"
-                }
-                inputMode={
-                  platform === "whatsapp" || platform === "sms"
-                    ? "tel"
-                    : platform === "pulse"
-                      ? "email"
-                      : "text"
-                }
-                autoComplete={platform === "pulse" ? "email" : "off"}
-                className="w-full glass-card text-sm rounded-xl px-3 py-2.5 min-h-11 text-white border border-white/10 bg-transparent placeholder-slate-500 focus:outline-none focus:border-indigo-500"
-              />
-            </div>
           </div>
           <button
             type="submit"
-            disabled={isAddingContact || !name.trim()}
+            disabled={
+              isAddingContact ||
+              !name.trim() ||
+              (!email.trim() && !phone.trim())
+            }
             className="w-full sm:w-auto px-4 py-2.5 min-h-11 rounded-xl bg-indigo-600 hover:bg-indigo-500 disabled:opacity-60 text-white text-xs font-bold transition flex items-center justify-center gap-2"
           >
             {isAddingContact ? (
@@ -277,7 +335,7 @@ export function DiscoveryScreen() {
               onClick={resyncContacts}
               className="px-3 py-1.5 rounded-xl text-xs bg-rose-500/30 hover:bg-rose-500/40 font-semibold"
             >
-              Retry
+              Retry sync
             </button>
           </div>
         </div>
@@ -290,7 +348,7 @@ export function DiscoveryScreen() {
             value={discoverySearch}
             onChange={(e) => setDiscoverySearch(e.target.value)}
             type="text"
-            placeholder="Search contacts by name, handle, phone number, or network..."
+            placeholder="Search by name, email, phone, or network..."
             className="w-full glass-card pl-11 pr-4 py-3 rounded-2xl text-xs sm:text-sm text-white placeholder-slate-500 focus:outline-none focus:border-indigo-500 border border-white/10 transition"
           />
         </div>
@@ -336,48 +394,55 @@ export function DiscoveryScreen() {
           ))}
           <div className="col-span-full flex items-center justify-center gap-2 text-sm text-indigo-300 py-2">
             <Loader2 className="size-4 animate-spin" />
-            Refreshing your contacts…
+            Syncing email &amp; phone from your phonebook…
           </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 pb-16 sm:pb-12 overflow-y-auto max-h-[min(60dvh,32rem)] pr-1">
           {filtered.length === 0 ? (
-            <div className="col-span-1 md:col-span-2 lg:col-span-3 text-center py-12 text-slate-500 text-sm glass-card rounded-3xl">
+            <div className="col-span-1 md:col-span-2 lg:col-span-3 text-center py-12 text-slate-500 text-sm glass-card rounded-3xl space-y-3">
               <Users className="size-8 mb-2 text-slate-600 mx-auto block" />
-              {contacts.length === 0
-                ? "No contacts yet. Add someone above to start chatting."
-                : "No contacts match your current filter or search."}
+              <p>
+                {contacts.length === 0
+                  ? "No contacts yet. Sync your phonebook or add email/phone above."
+                  : "No contacts match your current filter or search."}
+              </p>
+              {contacts.length === 0 && (
+                <button
+                  type="button"
+                  onClick={resyncContacts}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold"
+                >
+                  <Smartphone className="size-3.5" />
+                  Sync phone contacts
+                </button>
+              )}
             </div>
           ) : (
             filtered.map((c) => {
               let bridgeBadge: ReactNode;
               if (c.platform === "pulse") {
                 bridgeBadge = (
-                  <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 flex items-center gap-1 font-semibold">
+                  <span className="text-[10px] bg-indigo-500/20 text-indigo-300 px-2 py-0.5 rounded-full border border-indigo-500/30 font-semibold">
                     Native Pulse
-                  </span>
-                );
-              } else if (c.bridgeConnected) {
-                bridgeBadge = (
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1 font-semibold">
-                    {c.platform === "whatsapp"
-                      ? "WhatsApp handoff"
-                      : "Connected (sim)"}
                   </span>
                 );
               } else if (c.platform === "whatsapp") {
                 bridgeBadge = (
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 flex items-center gap-1 font-semibold">
+                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 font-semibold">
                     Opens WhatsApp
                   </span>
                 );
               } else {
                 bridgeBadge = (
-                  <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30 flex items-center gap-1 font-semibold">
-                    In-app only
+                  <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30 font-semibold">
+                    {c.platformName}
                   </span>
                 );
               }
+
+              const email = c.email || c.peerEmail || (c.handle.includes("@") ? c.handle : "");
+              const phone = c.phone && !c.phone.includes("@") ? c.phone : "";
 
               return (
                 <div
@@ -400,12 +465,21 @@ export function DiscoveryScreen() {
                       {bridgeBadge}
                     </div>
                     <h4 className="font-bold text-sm text-white">{c.name}</h4>
-                    <p className="text-xs text-slate-400 font-mono mt-0.5 truncate">
-                      {c.handle}
-                    </p>
-                    <p className="text-[11px] text-slate-500 font-mono mt-1">
-                      {c.phone}
-                    </p>
+                    {email ? (
+                      <p className="text-xs text-slate-300 font-mono mt-1 truncate">
+                        ✉ {email}
+                      </p>
+                    ) : null}
+                    {phone ? (
+                      <p className="text-[11px] text-slate-400 font-mono mt-0.5 truncate">
+                        ☎ {phone}
+                      </p>
+                    ) : null}
+                    {!email && !phone ? (
+                      <p className="text-xs text-slate-500 font-mono mt-0.5 truncate">
+                        {c.handle}
+                      </p>
+                    ) : null}
                   </div>
                   <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
                     <span className="text-[11px] text-slate-400 font-medium">
@@ -414,7 +488,7 @@ export function DiscoveryScreen() {
                     <button
                       type="button"
                       onClick={() => startChat(c.id)}
-                      className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition flex items-center gap-1.5 active:scale-95"
+                      className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition active:scale-95"
                     >
                       Chat Now
                     </button>

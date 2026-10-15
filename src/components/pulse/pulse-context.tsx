@@ -63,12 +63,14 @@ interface PulseContextValue {
   loginCustom: (email: string) => void;
   signOut: () => void;
   resyncContacts: () => void;
+  importPhonebook: (drafts: Array<{ name?: string; email?: string; phone?: string }>) => Promise<void>;
   clearSyncError: () => void;
   addContact: (input: {
     name: string;
-    platform: Platform;
+    platform?: Platform;
     handle?: string;
     phone?: string;
+    email?: string;
   }) => Promise<Contact | null>;
   sendMessage: (text: string) => Promise<void>;
   retryMessage: (messageId: string) => Promise<void>;
@@ -273,7 +275,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
         showToast(
           list.length
             ? `Signed in as ${loggedIn.email}`
-            : `Signed in as ${loggedIn.email} — add a contact to start chatting`,
+            : `Signed in — tap Sync phone contacts to import email & phone`,
         );
         setScreen("discovery");
       } catch (e) {
@@ -320,46 +322,106 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     showToast("Signed out of PulseChat");
   }, [showToast]);
 
+  const importPhonebook = useCallback(
+    async (
+      drafts: Array<{ name?: string; email?: string; phone?: string }>,
+    ) => {
+      setIsSyncing(true);
+      setSyncError(null);
+      try {
+        const data = await api.importContacts(drafts);
+        setContacts(data.contacts);
+        showToast(
+          `Synced ${data.imported} new · ${data.updated} updated` +
+            (data.skipped ? ` · ${data.skipped} skipped` : "") +
+            " (email + phone)",
+        );
+      } catch (e) {
+        setSyncError(errMessage(e, "Phonebook sync failed"));
+      } finally {
+        setIsSyncing(false);
+      }
+    },
+    [showToast],
+  );
+
   const resyncContacts = useCallback(async () => {
     setIsSyncing(true);
     setSyncError(null);
     try {
+      // Prefer device Contact Picker (Android Chrome) for real email/phone
+      const { canPickDeviceContacts, pickDeviceContacts } = await import(
+        "@/lib/device-contacts"
+      );
+      if (canPickDeviceContacts()) {
+        try {
+          const drafts = await pickDeviceContacts();
+          if (drafts.length === 0) {
+            showToast("No contacts with email or phone selected");
+            setIsSyncing(false);
+            return;
+          }
+          setIsSyncing(false);
+          await importPhonebook(drafts);
+          return;
+        } catch (e) {
+          // User cancelled picker — don't treat as hard error
+          const msg = errMessage(e, "");
+          if (/cancel|abort/i.test(msg)) {
+            setIsSyncing(false);
+            return;
+          }
+          // Fall through to server refresh + UI paste
+        }
+      }
+
       const data = await api.resync();
       setContacts(data.contacts);
-      const n = data.contacts.length;
       showToast(
-        n
-          ? `Phonebook refreshed — ${n} contact${n === 1 ? "" : "s"}`
-          : "Phonebook empty — add someone to get started",
+        data.contacts.length
+          ? `Phonebook ready — ${data.contacts.length} contact(s). Use Sync / Paste to import email & phone.`
+          : "Tap Sync phone contacts (or Paste) to import email & phone numbers",
       );
     } catch (e) {
       setSyncError(errMessage(e, "Phonebook sync failed"));
     } finally {
       setIsSyncing(false);
     }
-  }, [showToast]);
+  }, [importPhonebook, showToast]);
 
   const clearSyncError = useCallback(() => setSyncError(null), []);
 
   const addContact = useCallback(
     async (input: {
       name: string;
-      platform: Platform;
+      platform?: Platform;
       handle?: string;
       phone?: string;
+      email?: string;
     }) => {
       setIsAddingContact(true);
       try {
         const { contact } = await api.addContact(input);
         setContacts((prev) => {
-          if (prev.some((c) => c.id === contact.id)) return prev;
-          return [contact, ...prev];
+          const idx = prev.findIndex((c) => c.id === contact.id);
+          if (idx === -1) return [contact, ...prev];
+          const next = [...prev];
+          next[idx] = contact;
+          return next;
         });
         setMessages((prev) =>
           prev[contact.id] ? prev : { ...prev, [contact.id]: [] },
         );
         if (!activeContactId) setActiveContactId(contact.id);
-        showToast(`Added ${contact.name} on ${contact.platformName}`);
+        const bits = [
+          contact.email && `email ${contact.email}`,
+          contact.phone && `phone ${contact.phone}`,
+        ]
+          .filter(Boolean)
+          .join(" · ");
+        showToast(
+          `Added ${contact.name}` + (bits ? ` (${bits})` : ""),
+        );
         return contact;
       } catch (e) {
         showToast(errMessage(e, "Could not add contact"));
@@ -585,6 +647,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     loginCustom,
     signOut,
     resyncContacts,
+    importPhonebook,
     clearSyncError,
     addContact,
     sendMessage,

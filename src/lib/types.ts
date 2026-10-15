@@ -21,7 +21,10 @@ export interface Contact {
   name: string;
   platform: Platform;
   handle: string;
+  /** E.164-ish phone when known (WhatsApp / SMS / synced) */
   phone: string;
+  /** Email when known (Pulse peer or synced phonebook) */
+  email?: string;
   avatar: string;
   status: string;
   bridgeConnected: boolean;

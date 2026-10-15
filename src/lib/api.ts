@@ -58,13 +58,31 @@ export const api = {
   contacts: () => request<{ contacts: Contact[] }>("/api/contacts"),
   addContact: (body: {
     name: string;
-    platform: Platform;
+    platform?: Platform;
     handle?: string;
     phone?: string;
+    email?: string;
   }) =>
     request<{ contact: Contact }>("/api/contacts", {
       method: "POST",
       body: JSON.stringify(body),
+    }),
+  importContacts: (
+    contacts: Array<{
+      name?: string;
+      email?: string;
+      phone?: string;
+      platform?: Platform;
+    }>,
+  ) =>
+    request<{
+      imported: number;
+      updated: number;
+      skipped: number;
+      contacts: Contact[];
+    }>("/api/contacts/import", {
+      method: "POST",
+      body: JSON.stringify({ contacts }),
     }),
   resync: () =>
     request<{ contacts: Contact[] }>("/api/contacts/resync", {

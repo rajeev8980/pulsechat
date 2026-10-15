@@ -264,7 +264,9 @@ export function resyncContacts(
 function ensurePulsePeerContact(
   owner: UserAccount,
   peer: UserAccount,
+  extras?: { phone?: string },
 ): Contact {
+  const phone = extras?.phone?.trim() || "";
   const existing = owner.contacts.find(
     (c) =>
       c.platform === "pulse" &&
@@ -275,8 +277,14 @@ function ensurePulsePeerContact(
     existing.name = peer.name;
     existing.avatar = peer.avatar;
     existing.handle = peer.email;
-    existing.phone = peer.email;
-    existing.status = "Pulse • Online";
+    existing.email = peer.email;
+    if (phone) existing.phone = phone;
+    else if (!existing.phone || existing.phone.includes("@")) {
+      existing.phone = phone;
+    }
+    existing.status = phone
+      ? "Pulse • Online · phone synced"
+      : "Pulse • Online";
     existing.bridgeConnected = true;
     existing.invitationSent = true;
     return existing;
@@ -287,10 +295,11 @@ function ensurePulsePeerContact(
     name: peer.name,
     platform: "pulse",
     handle: peer.email,
-    phone: peer.email,
+    email: peer.email,
+    phone,
     peerEmail: peer.email,
     avatar: peer.avatar,
-    status: "Pulse • Online",
+    status: phone ? "Pulse • Online · phone synced" : "Pulse • Online",
     bridgeConnected: true,
     invitationSent: true,
     platformName: PLATFORM_META.pulse.platformName,
@@ -299,26 +308,60 @@ function ensurePulsePeerContact(
   return contact;
 }
 
+function findByEmail(owner: UserAccount, email: string): Contact | undefined {
+  const e = normalizeEmail(email);
+  return owner.contacts.find(
+    (c) =>
+      (c.email && normalizeEmail(c.email) === e) ||
+      (c.peerEmail && normalizeEmail(c.peerEmail) === e) ||
+      (c.handle.includes("@") && normalizeEmail(c.handle) === e),
+  );
+}
+
+function findByPhone(owner: UserAccount, phone: string): Contact | undefined {
+  const d = normalizeDigits(phone) || phone.replace(/\D/g, "");
+  if (d.length < 7) return undefined;
+  return owner.contacts.find((c) => {
+    const cd = (c.phone || "").replace(/\D/g, "");
+    return cd.length >= 7 && (cd === d || cd.endsWith(d) || d.endsWith(cd));
+  });
+}
+
 export function addContact(
   ownerEmail: string,
   input: {
     name: string;
-    platform: Platform;
+    platform?: Platform;
     handle?: string;
     phone?: string;
+    email?: string;
   },
 ): Contact | { error: string } {
   const owner = requireAccount(ownerEmail);
   const name = input.name.trim();
   if (!name) return { error: "Name is required" };
-  if (!input.platform) return { error: "Platform is required" };
 
-  // Pulse ↔ Pulse: contact by peer email
-  if (input.platform === "pulse") {
-    const peerRaw = (input.handle || input.phone || "").trim();
+  const emailRaw = (
+    input.email ||
+    (input.handle?.includes("@") ? input.handle : "") ||
+    ""
+  ).trim();
+  const phoneRaw = (input.phone || "").trim();
+
+  let platform = input.platform;
+  if (!platform) {
+    if (emailRaw.includes("@")) platform = "pulse";
+    else if (phoneRaw) platform = "whatsapp";
+    else return { error: "Provide an email and/or phone number" };
+  }
+
+  // Pulse ↔ Pulse: contact by peer email (+ optional phone)
+  if (platform === "pulse") {
+    const peerRaw = emailRaw || (input.handle || "").trim();
     if (!peerRaw.includes("@")) {
       return {
-        error: "Pulse contacts need their PulseChat email (e.g. friend@email.com).",
+        error:
+          "Pulse contacts need their PulseChat email (e.g. friend@email.com).",
       };
     }
     const peerEmail = normalizeEmail(peerRaw);
@@ -329,7 +372,6 @@ export function addContact(
     const store = getStore();
     let peer = store.users.get(peerEmail);
     if (!peer) {
-      // Stub account — when they sign in with this email they inherit the inbox
       peer = {
         email: peerEmail,
         name: name,
@@ -342,23 +384,24 @@ export function addContact(
       peer.name = name;
     }
 
-    const mine = ensurePulsePeerContact(owner, peer);
+    const mine = ensurePulsePeerContact(owner, peer, { phone: phoneRaw });
     ensurePulsePeerContact(peer, owner);
-    // Prefer display name the adder typed
     mine.name = name;
+    if (phoneRaw) mine.phone = phoneRaw;
+    mine.email = peerEmail;
     schedulePersist();
     return { ...mine };
   }
 
-  const meta = PLATFORM_META[input.platform];
+  const meta = PLATFORM_META[platform];
+  const phone = phoneRaw || (input.handle?.trim() || "");
   const handle =
-    input.handle?.trim() ||
-    input.phone?.trim() ||
+    emailRaw ||
+    phone ||
     `@${name.toLowerCase().replace(/\s+/g, "_")}`;
-  const phone = input.phone?.trim() || handle;
 
   if (
-    (input.platform === "whatsapp" || input.platform === "sms") &&
+    (platform === "whatsapp" || platform === "sms") &&
     !normalizeDigits(phone)
   ) {
     return {
@@ -367,17 +410,32 @@ export function addContact(
     };
   }
 
+  const existing =
+    (emailRaw && findByEmail(owner, emailRaw)) ||
+    (phone && findByPhone(owner, phone));
+  if (existing) {
+    existing.name = name || existing.name;
+    if (emailRaw) existing.email = normalizeEmail(emailRaw);
+    if (phone) existing.phone = phone;
+    existing.handle = existing.email || existing.phone || existing.handle;
+    schedulePersist();
+    return { ...existing };
+  }
+
   const contact: Contact = {
     id: uid("c"),
     name,
-    platform: input.platform,
+    platform,
     handle,
     phone,
+    email: emailRaw ? normalizeEmail(emailRaw) : undefined,
     avatar: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(name)}&backgroundColor=6366f1`,
     status:
-      input.platform === "whatsapp"
-        ? "WhatsApp • Opens on your phone"
-        : input.platform === "sms"
+      platform === "whatsapp"
+        ? emailRaw
+          ? "WhatsApp · email+phone synced"
+          : "WhatsApp • Opens on your phone"
+        : platform === "sms"
           ? "SMS • Opens Messages app"
           : meta.status,
     bridgeConnected: false,
@@ -389,6 +447,74 @@ export function addContact(
   if (!owner.localThreads[contact.id]) owner.localThreads[contact.id] = [];
   schedulePersist();
   return contact;
+}
+
+/** Bulk import from device phonebook / paste — keeps email and phone. */
+export function importContacts(
+  ownerEmail: string,
+  items: Array<{
+    name?: string;
+    email?: string;
+    phone?: string;
+    platform?: Platform;
+  }>,
+): {
+  imported: number;
+  updated: number;
+  skipped: number;
+  contacts: Contact[];
+} {
+  let imported = 0;
+  let updated = 0;
+  let skipped = 0;
+  const owner = requireAccount(ownerEmail);
+  const before = new Set(owner.contacts.map((c) => c.id));
+
+  for (const item of items) {
+    const email = item.email?.trim();
+    const phone = item.phone?.trim();
+    const name =
+      item.name?.trim() ||
+      (email
+        ? email
+            .split("@")[0]
+            .replace(/[._]/g, " ")
+            .replace(/\b\w/g, (c) => c.toUpperCase())
+        : phone) ||
+      "";
+
+    if (!email && !phone) {
+      skipped += 1;
+      continue;
+    }
+
+    // Prefer Pulse when email exists so peer chat works; keep phone too.
+    const platform: Platform =
+      item.platform || (email?.includes("@") ? "pulse" : "whatsapp");
+
+    const beforeIds = new Set(owner.contacts.map((c) => c.id));
+    const result = addContact(ownerEmail, {
+      name,
+      platform,
+      email,
+      phone,
+      handle: email || phone,
+    });
+    if ("error" in result) {
+      skipped += 1;
+      continue;
+    }
+    if (beforeIds.has(result.id) || before.has(result.id)) updated += 1;
+    else imported += 1;
+  }
+
+  schedulePersist();
+  return {
+    imported,
+    updated,
+    skipped,
+    contacts: listContacts(ownerEmail),
+  };
 }
 
 export function getMessages(ownerEmail: string, contactId: string): Message[] {
