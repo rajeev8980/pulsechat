@@ -26,6 +26,10 @@ npm run dev -- -p 43127
 
 Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 
+**Live (global):** https://dental-milwaukee-funk-chevy.trycloudflare.com  
+
+Installed Android/PWA auto-updates when `/api/version` `buildId` changes (poll ~12s + on focus).
+
 ### Install on Android
 
 1. Open the **live** URL (see docs) or your LAN/dev URL in **Chrome** on Android.

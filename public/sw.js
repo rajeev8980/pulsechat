@@ -1,5 +1,5 @@
 /* PulseChat SW — auto-updates Android / installed PWA */
-const CACHE = "pulsechat-shell-v10";
+const CACHE = "pulsechat-shell-v11";
 const PRECACHE = ["/manifest.webmanifest", "/icons/icon-192.png", "/icons/icon-512.png"];
 
 self.addEventListener("install", (event) => {
