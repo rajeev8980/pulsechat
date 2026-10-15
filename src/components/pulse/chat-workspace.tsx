@@ -393,9 +393,11 @@ export function ChatWorkspace() {
                       ? `Pulse↔Pulse live chat with ${activeContact.peerEmail || activeContact.handle} — they see this when signed in with that email`
                       : activeContact.platform === "whatsapp"
                         ? `Real WhatsApp: Send opens WhatsApp for ${activeContact.phone} — they only get it after you tap Send there`
-                        : activeContact.platform === "sms"
-                          ? `Real SMS: Send opens your Messages app for ${activeContact.phone}`
-                          : `${activeContact.platformName} is saved in PulseChat only (no live API yet)`}
+                        : activeContact.platform === "telegram"
+                          ? `Real Telegram: Send opens Telegram for ${activeContact.handle || activeContact.phone} — paste/send there to deliver`
+                          : activeContact.platform === "sms"
+                            ? `Real SMS: Send opens your Messages app for ${activeContact.phone}`
+                            : `${activeContact.platformName} is saved in PulseChat only (no live API yet)`}
                   </span>
                 </div>
 
@@ -457,23 +459,30 @@ export function ChatWorkspace() {
                             </span>
                           </div>
                           {(activeContact.platform === "whatsapp" ||
+                            activeContact.platform === "telegram" ||
                             activeContact.platform === "sms") &&
                             msg.delivery !== "whatsapp_api" && (
                               <button
                                 type="button"
                                 onClick={() => {
-                                  const r = openExternalChat(
+                                  const plat =
                                     activeContact.platform === "sms"
                                       ? "sms"
-                                      : "whatsapp",
+                                      : activeContact.platform === "telegram"
+                                        ? "telegram"
+                                        : "whatsapp";
+                                  const r = openExternalChat(
+                                    plat,
                                     activeContact.phone || activeContact.handle,
                                     msg.text,
                                   );
                                   showToast(
                                     r.ok
-                                      ? activeContact.platform === "whatsapp"
+                                      ? plat === "whatsapp"
                                         ? "WhatsApp opened — tap Send to deliver"
-                                        : "Messages opened — tap Send to deliver"
+                                        : plat === "telegram"
+                                          ? "Telegram opened — paste & send there"
+                                          : "Messages opened — tap Send to deliver"
                                       : r.error,
                                   );
                                 }}
@@ -481,7 +490,9 @@ export function ChatWorkspace() {
                               >
                                 {activeContact.platform === "whatsapp"
                                   ? "Open in WhatsApp again"
-                                  : "Open in Messages again"}
+                                  : activeContact.platform === "telegram"
+                                    ? "Open in Telegram again"
+                                    : "Open in Messages again"}
                               </button>
                             )}
                         </div>
@@ -639,6 +650,36 @@ function BridgeBanner() {
           className="font-bold underline text-white hover:text-emerald-200 shrink-0"
         >
           Open WhatsApp
+        </button>
+      </div>
+    );
+  }
+
+  if (activeContact.platform === "telegram") {
+    return (
+      <div className="px-4 py-2.5 text-xs flex items-center justify-between bg-sky-500/15 border-b border-sky-500/25 text-sky-100 shrink-0 gap-2">
+        <div className="flex items-center gap-2 min-w-0">
+          <span className="w-2 h-2 rounded-full bg-sky-400 shrink-0" />
+          <span className="leading-snug">
+            <strong>Real Telegram:</strong> Send opens Telegram for{" "}
+            {activeContact.handle || activeContact.phone}. Your text is copied —
+            paste and tap Send in Telegram so they receive it. Simulator replies
+            are fake.
+          </span>
+        </div>
+        <button
+          type="button"
+          onClick={() => {
+            const r = openExternalChat(
+              "telegram",
+              activeContact.phone || activeContact.handle,
+              "",
+            );
+            showToast(r.ok ? "Opening Telegram…" : r.error);
+          }}
+          className="font-bold underline text-white hover:text-sky-200 shrink-0"
+        >
+          Open Telegram
         </button>
       </div>
     );

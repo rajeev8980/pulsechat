@@ -30,9 +30,11 @@ export async function POST(req: Request, { params }: Params) {
   const needsClientHandoff =
     contact?.platform === "whatsapp"
       ? ("whatsapp" as const)
-      : contact?.platform === "sms"
-        ? ("sms" as const)
-        : null;
+      : contact?.platform === "telegram"
+        ? ("telegram" as const)
+        : contact?.platform === "sms"
+          ? ("sms" as const)
+          : null;
 
   return NextResponse.json({
     message: result.message,

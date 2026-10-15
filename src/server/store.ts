@@ -410,6 +410,20 @@ export function addContact(
     };
   }
 
+  if (platform === "telegram") {
+    const target = (phone || handle || emailRaw || "").trim();
+    const isUser =
+      /^@?[A-Za-z]\w{3,31}$/.test(target.replace(/^@/, "")) &&
+      !/^\d+$/.test(target.replace(/^@/, ""));
+    const isPhone = Boolean(normalizeDigits(target));
+    if (!isUser && !isPhone) {
+      return {
+        error:
+          "Telegram contacts need an @username or phone with country code.",
+      };
+    }
+  }
+
   const existing =
     (emailRaw && findByEmail(owner, emailRaw)) ||
     (phone && findByPhone(owner, phone));
@@ -544,7 +558,7 @@ export function sendMessage(
       message: Message;
       contact: Contact;
       invitationSent?: boolean;
-      needsClientHandoff?: "whatsapp" | "sms";
+      needsClientHandoff?: "whatsapp" | "sms" | "telegram";
       pulseDelivered?: boolean;
     }
   | { ok: false; error: string; message?: Message } {
@@ -602,11 +616,14 @@ export function sendMessage(
   }
 
   let delivery: DeliveryStatus = opts?.delivery || "local";
-  let needsClientHandoff: "whatsapp" | "sms" | undefined;
+  let needsClientHandoff: "whatsapp" | "sms" | "telegram" | undefined;
   if (!opts?.delivery && !shouldFail) {
     if (contact.platform === "whatsapp") {
       needsClientHandoff = "whatsapp";
       delivery = "whatsapp_handoff";
+    } else if (contact.platform === "telegram") {
+      needsClientHandoff = "telegram";
+      delivery = "telegram_handoff";
     } else if (contact.platform === "sms") {
       needsClientHandoff = "sms";
       delivery = "sms_handoff";

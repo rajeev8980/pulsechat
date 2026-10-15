@@ -98,7 +98,7 @@ export const api = {
       contact: Contact;
       invitationSent?: boolean;
       autoReplyPending?: boolean;
-      needsClientHandoff?: "whatsapp" | "sms" | null;
+      needsClientHandoff?: "whatsapp" | "sms" | "telegram" | null;
       cloudError?: string;
       whatsappCloudConfigured?: boolean;
       pulseDelivered?: boolean;
@@ -111,7 +111,7 @@ export const api = {
       message: Message;
       contact: Contact;
       autoReplyPending?: boolean;
-      needsClientHandoff?: "whatsapp" | "sms" | null;
+      needsClientHandoff?: "whatsapp" | "sms" | "telegram" | null;
     }>(`/api/messages/${contactId}/retry`, {
       method: "POST",
       body: JSON.stringify({ messageId }),

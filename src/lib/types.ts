@@ -40,6 +40,7 @@ export type DeliveryStatus =
   | "pulse"
   | "whatsapp_handoff"
   | "whatsapp_api"
+  | "telegram_handoff"
   | "sms_handoff"
   | "simulated";
 

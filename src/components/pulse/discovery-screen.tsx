@@ -273,14 +273,20 @@ export function DiscoveryScreen() {
             </div>
             <div>
               <label className="text-[11px] text-slate-400 block mb-1.5">
-                Phone
+                {platform === "telegram"
+                  ? "Telegram @username or phone"
+                  : "Phone"}
               </label>
               <input
                 value={phone}
                 onChange={(e) => setPhone(e.target.value)}
-                type="tel"
-                inputMode="tel"
-                placeholder="+919334803286"
+                type={platform === "telegram" ? "text" : "tel"}
+                inputMode={platform === "telegram" ? "text" : "tel"}
+                placeholder={
+                  platform === "telegram"
+                    ? "@rajeev or +9198…"
+                    : "+919334803286"
+                }
                 className="w-full glass-card text-sm rounded-xl px-3 py-2.5 min-h-11 text-white border border-white/10 bg-transparent placeholder-slate-500 focus:outline-none focus:border-indigo-500"
               />
             </div>

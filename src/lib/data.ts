@@ -26,7 +26,10 @@ export const PLATFORM_META: Record<
 > = {
   pulse: { platformName: "Native Pulse", status: "Pulse • Peer chat" },
   whatsapp: { platformName: "WhatsApp", status: "WhatsApp • Invite Ready" },
-  telegram: { platformName: "Telegram", status: "Telegram • Invite Ready" },
+  telegram: {
+    platformName: "Telegram",
+    status: "Telegram • Opens on your phone",
+  },
   instagram: {
     platformName: "Instagram Direct",
     status: "Instagram Direct • Invite Ready",

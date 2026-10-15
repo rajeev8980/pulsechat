@@ -456,8 +456,12 @@ export function PulseProvider({ children }: { children: ReactNode }) {
   );
 
   const handoffToDevice = useCallback(
-    (platform: "whatsapp" | "sms", phone: string, text: string) => {
-      const result = openExternalChat(platform, phone, text);
+    (
+      platform: "whatsapp" | "sms" | "telegram",
+      target: string,
+      text: string,
+    ) => {
+      const result = openExternalChat(platform, target, text);
       if (!result.ok) {
         showToast(result.error);
         return false;
@@ -465,7 +469,9 @@ export function PulseProvider({ children }: { children: ReactNode }) {
       showToast(
         platform === "whatsapp"
           ? "WhatsApp opened — tap Send there so they receive it"
-          : "Messages app opened — tap Send to deliver",
+          : platform === "telegram"
+            ? "Telegram opened — message copied; paste & send there"
+            : "Messages app opened — tap Send to deliver",
       );
       return true;
     },
@@ -479,8 +485,12 @@ export function PulseProvider({ children }: { children: ReactNode }) {
       const phone = activeContact.phone || activeContact.handle;
       const platform = activeContact.platform;
 
-      // Open WhatsApp / SMS from the user gesture first (real delivery path).
-      if (platform === "whatsapp" || platform === "sms") {
+      // Open WhatsApp / Telegram / SMS from the user gesture (real delivery).
+      if (
+        platform === "whatsapp" ||
+        platform === "sms" ||
+        platform === "telegram"
+      ) {
         handoffToDevice(platform, phone, text);
       }
 
@@ -499,7 +509,8 @@ export function PulseProvider({ children }: { children: ReactNode }) {
           showToast(`Sent to WhatsApp for ${data.contact.name}`);
         } else if (
           data.needsClientHandoff === "whatsapp" ||
-          data.needsClientHandoff === "sms"
+          data.needsClientHandoff === "sms" ||
+          data.needsClientHandoff === "telegram"
         ) {
           if (data.cloudError) {
             handoffToDevice(data.needsClientHandoff, phone, text);
@@ -532,6 +543,8 @@ export function PulseProvider({ children }: { children: ReactNode }) {
 
       if (activeContact.platform === "whatsapp" && failed?.text) {
         handoffToDevice("whatsapp", phone, failed.text);
+      } else if (activeContact.platform === "telegram" && failed?.text) {
+        handoffToDevice("telegram", phone, failed.text);
       } else if (activeContact.platform === "sms" && failed?.text) {
         handoffToDevice("sms", phone, failed.text);
       }

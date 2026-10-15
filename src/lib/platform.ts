@@ -42,6 +42,8 @@ export function getPlatformDeliveryTag(
   if (delivery === "whatsapp_api") return "Sent via WhatsApp Cloud API ✓✓";
   if (delivery === "whatsapp_handoff")
     return "Opened in WhatsApp — tap Send there to deliver";
+  if (delivery === "telegram_handoff")
+    return "Opened Telegram — paste/send there to deliver";
   if (delivery === "sms_handoff")
     return "Opened SMS app — tap Send to deliver";
   if (delivery === "simulated") return "Simulated in PulseChat only";
@@ -52,7 +54,7 @@ export function getPlatformDeliveryTag(
     case "whatsapp":
       return "Not sent to WhatsApp yet — use Send to open WhatsApp";
     case "telegram":
-      return "Saved in PulseChat (Telegram API not connected)";
+      return "Not sent to Telegram yet — use Send to open Telegram";
     case "instagram":
       return "Saved in PulseChat (Instagram API not connected)";
     case "messenger":
