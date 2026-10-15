@@ -179,12 +179,13 @@ export function PulseProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let cancelled = false;
+    // Escape Connecting screen quickly on mobile / flaky tunnels
     const bootWatchdog = setTimeout(() => {
       if (!cancelled) {
         setIsBooting(false);
         setApiError((prev) => prev ?? "Startup took too long — you can still sign in.");
       }
-    }, 10000);
+    }, 2500);
 
     (async () => {
       try {

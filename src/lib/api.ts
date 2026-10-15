@@ -42,7 +42,12 @@ async function request<T>(
 }
 
 export const api = {
-  me: () => request<{ user: User | null }>("/api/auth/me"),
+  me: () =>
+    request<{ user: User | null }>("/api/auth/me", { timeoutMs: 2500 }),
+  version: () =>
+    request<{ version: string; buildId: string }>("/api/version", {
+      timeoutMs: 3000,
+    }),
   login: (body: { name: string; email: string; avatar: string }) =>
     request<{ user: User }>("/api/auth/login", {
       method: "POST",

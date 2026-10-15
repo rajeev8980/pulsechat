@@ -25,6 +25,13 @@ function Screens() {
         <p className="text-[11px] text-slate-500 font-mono">
           Restoring session & platform routers
         </p>
+        <button
+          type="button"
+          className="mt-2 text-xs font-semibold text-indigo-300 underline"
+          onClick={() => window.location.reload()}
+        >
+          Tap to retry / refresh
+        </button>
       </div>
     );
   }
