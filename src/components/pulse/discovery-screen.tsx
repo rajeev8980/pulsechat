@@ -10,6 +10,7 @@ import {
   Search,
   Smartphone,
   Users,
+  X,
 } from "lucide-react";
 import { FaFacebookMessenger, FaInstagram, FaTelegram, FaWhatsapp } from "react-icons/fa6";
 import { MdSms } from "react-icons/md";
@@ -84,6 +85,8 @@ export function DiscoveryScreen() {
     clearSyncError,
     addContact,
     isAddingContact,
+    contactFetchPrompt,
+    dismissContactFetchPrompt,
   } = usePulse();
 
   const [name, setName] = useState("");
@@ -149,8 +152,81 @@ export function DiscoveryScreen() {
     setPasteOpen(false);
   }
 
+  async function onAutoFetchContacts() {
+    if (!deviceSync) {
+      dismissContactFetchPrompt();
+      setPasteOpen(true);
+      return;
+    }
+    dismissContactFetchPrompt();
+    await resyncContacts();
+  }
+
   return (
     <section className="flex-1 max-w-6xl mx-auto w-full px-3 sm:px-6 py-4 sm:py-6 flex flex-col space-y-4 sm:space-y-6 animate-in fade-in duration-300 min-h-0">
+      {contactFetchPrompt && (
+        <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4 bg-black/80 backdrop-blur-sm">
+          <div
+            className="glass-panel w-full max-w-md rounded-3xl p-6 border border-emerald-500/30 shadow-2xl relative"
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="contact-fetch-title"
+          >
+            <button
+              type="button"
+              onClick={dismissContactFetchPrompt}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white p-1"
+              aria-label="Close"
+            >
+              <X className="size-4" />
+            </button>
+            <div className="w-14 h-14 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center mb-4">
+              <Smartphone className="size-7 text-emerald-400" />
+            </div>
+            <h3
+              id="contact-fetch-title"
+              className="text-xl font-extrabold text-white"
+            >
+              Auto-fetch your contacts
+            </h3>
+            <p className="text-sm text-slate-400 mt-2">
+              {deviceSync
+                ? "Chrome will open your phonebook. Select contacts (multi-select) — we pull every mobile + email and show who is already on PulseChat."
+                : "This browser cannot open the phonebook picker. Use Paste import, or open PulseChat in Chrome on Android."}
+            </p>
+            <button
+              type="button"
+              disabled={isSyncing}
+              onClick={() => void onAutoFetchContacts()}
+              className="mt-5 w-full px-4 py-3.5 min-h-12 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-60 text-white text-sm font-bold flex items-center justify-center gap-2 touch-manipulation"
+            >
+              {isSyncing ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Smartphone className="size-4" />
+              )}
+              {deviceSync ? "Fetch my contacts now" : "Open Paste import"}
+            </button>
+            {!deviceSync && (
+              <button
+                type="button"
+                onClick={() => {
+                  dismissContactFetchPrompt();
+                  setPasteOpen(true);
+                }}
+                className="mt-2 w-full px-4 py-2.5 text-xs text-slate-400 hover:text-white"
+              >
+                Paste Name, email, phone lines
+              </button>
+            )}
+            <p className="text-[10px] text-slate-500 mt-3 text-center">
+              Android blocks silent full phonebook dump — one tap + select is
+              required.
+            </p>
+          </div>
+        </div>
+      )}
+
       <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4 p-5 glass-panel rounded-3xl shadow-xl">
         <div className="flex items-center gap-3.5">
           <div className="w-12 h-12 rounded-2xl pulse-grad flex items-center justify-center text-white text-xl shadow-lg shadow-indigo-600/30">

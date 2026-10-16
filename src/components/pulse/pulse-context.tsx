@@ -59,6 +59,9 @@ interface PulseContextValue {
   typingContactId: string | null;
   syncError: string | null;
   apiError: string | null;
+  /** Shown after sign-in so one tap opens the phone contact picker */
+  contactFetchPrompt: boolean;
+  dismissContactFetchPrompt: () => void;
   login: (user: User) => void;
   loginCustom: (email: string) => void;
   signOut: () => void;
@@ -119,7 +122,12 @@ export function PulseProvider({ children }: { children: ReactNode }) {
   const [typingContactId, setTypingContactId] = useState<string | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
   const [apiError, setApiError] = useState<string | null>(null);
+  const [contactFetchPrompt, setContactFetchPrompt] = useState(false);
   const toastTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const dismissContactFetchPrompt = useCallback(
+    () => setContactFetchPrompt(false),
+    [],
+  );
 
   const showToast = useCallback((msg: string) => {
     setToast(msg);
@@ -285,6 +293,10 @@ export function PulseProvider({ children }: { children: ReactNode }) {
             : `Signed in — add your mobile next time; tap Fetch mobiles to find who's on PulseChat`,
         );
         setScreen("discovery");
+        // Android/Chrome: prompt immediately so one tap auto-opens Contact Picker
+        if (list.length === 0) {
+          setContactFetchPrompt(true);
+        }
       } catch (e) {
         showToast(errMessage(e, "Sign-in failed"));
       } finally {
@@ -339,6 +351,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
       try {
         const data = await api.importContacts(drafts);
         setContacts(data.contacts);
+        setContactFetchPrompt(false);
         const mobiles = drafts.filter((d) => d.phone).length;
         const avail = data.availableOnPulse ?? 0;
         const emailBit =
@@ -687,6 +700,8 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     typingContactId,
     syncError,
     apiError,
+    contactFetchPrompt,
+    dismissContactFetchPrompt,
     login,
     loginCustom,
     signOut,
