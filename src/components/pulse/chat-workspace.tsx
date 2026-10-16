@@ -18,6 +18,8 @@ import {
 } from "lucide-react";
 import type { SidebarFilter } from "@/lib/types";
 import {
+  getAvailabilityChipClass,
+  getChatAvailability,
   getPlatformDeliveryTag,
   getPlatformTagStyles,
 } from "@/lib/platform";
@@ -172,32 +174,70 @@ export function ChatWorkspace() {
             </div>
           </div>
 
-          <div className="px-2 pb-1 flex gap-1.5 overflow-x-auto text-[12px] no-scrollbar">
-            {SIDEBAR_FILTERS.map((f) => (
-              <button
-                key={f.key}
-                type="button"
-                onClick={() => setSidebarFilter(f.key)}
-                className={cn(
-                  "px-3 py-1.5 rounded-full whitespace-nowrap transition font-medium",
-                  sidebarFilter === f.key
-                    ? "bg-[#00a884]/20 text-[#00a884]"
-                    : "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef]",
-                )}
-              >
-                {f.label}
-              </button>
-            ))}
+          <div className="px-3 pb-1.5 flex items-center justify-between gap-2">
+            <p className="text-[11px] text-[#8696a0]">
+              {contacts.length} contact{contacts.length === 1 ? "" : "s"}
+              {contacts.some((c) => c.onPulse) ? (
+                <>
+                  {" "}
+                  ·{" "}
+                  <span className="text-[#00a884] font-semibold">
+                    {contacts.filter((c) => c.onPulse).length} on PulseChat
+                  </span>
+                </>
+              ) : null}
+            </p>
           </div>
 
-          <div className="flex-1 overflow-y-auto">
+          <div className="px-2 pb-1 flex gap-1.5 overflow-x-auto text-[12px] no-scrollbar">
+            {SIDEBAR_FILTERS.map((f) => {
+              const count =
+                f.key === "all"
+                  ? contacts.length
+                  : f.key === "pulse"
+                    ? contacts.filter(
+                        (c) => c.onPulse || c.platform === "pulse",
+                      ).length
+                    : f.key === "wa_tg"
+                      ? contacts.filter(
+                          (c) =>
+                            c.platform === "whatsapp" ||
+                            c.platform === "telegram",
+                        ).length
+                      : f.key === "ig_fb"
+                        ? contacts.filter(
+                            (c) =>
+                              c.platform === "instagram" ||
+                              c.platform === "messenger",
+                          ).length
+                        : contacts.filter((c) => c.platform === "sms").length;
+              return (
+                <button
+                  key={f.key}
+                  type="button"
+                  onClick={() => setSidebarFilter(f.key)}
+                  className={cn(
+                    "px-3 py-1.5 rounded-full whitespace-nowrap transition font-medium",
+                    sidebarFilter === f.key
+                      ? "bg-[#00a884]/20 text-[#00a884]"
+                      : "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef]",
+                  )}
+                >
+                  {f.label}
+                  {count > 0 ? ` (${count})` : ""}
+                </button>
+              );
+            })}
+          </div>
+
+          <div className="flex-1 overflow-y-auto pb-20">
             {sorted.length === 0 ? (
               <div className="text-center py-16 px-6 text-[#8696a0] text-sm space-y-4">
                 <MessageCircle className="size-12 mx-auto text-[#3b4a54]" />
                 <p>
                   {contacts.length === 0
-                    ? "No chats yet. Fetch contacts or start a new chat."
-                    : "No chats match this filter."}
+                    ? "No contacts yet. Tap + to fetch your phonebook — we'll label who is on which app."
+                    : "No contacts match this filter."}
                 </p>
                 <button
                   type="button"
@@ -205,7 +245,7 @@ export function ChatWorkspace() {
                   className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#00a884] hover:bg-[#06cf9c] text-[#111b21] text-sm font-bold"
                 >
                   <Plus className="size-4" />
-                  New chat
+                  Fetch / add contacts
                 </button>
               </div>
             ) : (
@@ -214,14 +254,11 @@ export function ChatWorkspace() {
                 const mobile =
                   c.mobile ||
                   (c.phone && !c.phone.includes("@") ? c.phone : "");
+                const avail = getChatAvailability(c);
                 const lastMsg =
                   t.length > 0
                     ? t[t.length - 1].text
-                    : c.onPulse
-                      ? "Tap to chat on PulseChat"
-                      : mobile
-                        ? mobile
-                        : `Chat on ${c.platformName}`;
+                    : mobile || c.email || c.handle || "Tap to start chat";
                 const lastTime =
                   t.length > 0 ? t[t.length - 1].time : "";
                 const isActive = c.id === activeContactId;
@@ -257,12 +294,25 @@ export function ChatWorkspace() {
                           {lastTime}
                         </span>
                       </div>
-                      <p className="text-[13px] text-[#8696a0] truncate mt-0.5">
-                        {c.onPulse ? (
-                          <span className="text-[#00a884] font-medium mr-1">
-                            ·
-                          </span>
-                        ) : null}
+                      <div className="flex items-center gap-1.5 mt-1 flex-wrap">
+                        <span
+                          className={cn(
+                            "inline-flex items-center gap-1 text-[10px] font-bold px-1.5 py-0.5 rounded-md border shrink-0",
+                            getAvailabilityChipClass(avail.tone),
+                          )}
+                        >
+                          <PlatformIcon
+                            platform={
+                              c.onPulse || c.platform === "pulse"
+                                ? "pulse"
+                                : c.platform
+                            }
+                            className="size-2.5"
+                          />
+                          {avail.detail}
+                        </span>
+                      </div>
+                      <p className="text-[12px] text-[#8696a0] truncate mt-1">
                         {lastMsg}
                       </p>
                     </div>

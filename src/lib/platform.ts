@@ -1,4 +1,82 @@
-import type { DeliveryStatus, Platform } from "./types";
+import type { Contact, DeliveryStatus, Platform } from "./types";
+
+/** Short label: which app this contact is available to chat on. */
+export function getChatAvailability(contact: Contact): {
+  app: string;
+  short: string;
+  detail: string;
+  tone: "pulse" | "whatsapp" | "telegram" | "sms" | "other";
+} {
+  if (contact.onPulse || contact.platform === "pulse") {
+    return {
+      app: "PulseChat",
+      short: "PulseChat",
+      detail: "Available on PulseChat",
+      tone: "pulse",
+    };
+  }
+  switch (contact.platform) {
+    case "whatsapp":
+      return {
+        app: "WhatsApp",
+        short: "WhatsApp",
+        detail: "Chat on WhatsApp",
+        tone: "whatsapp",
+      };
+    case "telegram":
+      return {
+        app: "Telegram",
+        short: "Telegram",
+        detail: "Chat on Telegram",
+        tone: "telegram",
+      };
+    case "sms":
+      return {
+        app: "SMS",
+        short: "SMS",
+        detail: "Chat via SMS",
+        tone: "sms",
+      };
+    case "instagram":
+      return {
+        app: "Instagram",
+        short: "Instagram",
+        detail: "Chat on Instagram",
+        tone: "other",
+      };
+    case "messenger":
+      return {
+        app: "Messenger",
+        short: "Messenger",
+        detail: "Chat on Messenger",
+        tone: "other",
+      };
+    default:
+      return {
+        app: contact.platformName || "PulseChat",
+        short: contact.platformName || "Chat",
+        detail: `Chat on ${contact.platformName || "app"}`,
+        tone: "other",
+      };
+  }
+}
+
+export function getAvailabilityChipClass(
+  tone: ReturnType<typeof getChatAvailability>["tone"],
+): string {
+  switch (tone) {
+    case "pulse":
+      return "bg-[#00a884]/20 text-[#00a884] border-[#00a884]/35";
+    case "whatsapp":
+      return "bg-emerald-500/20 text-emerald-300 border-emerald-500/35";
+    case "telegram":
+      return "bg-sky-500/20 text-sky-300 border-sky-500/35";
+    case "sms":
+      return "bg-teal-500/20 text-teal-300 border-teal-500/35";
+    default:
+      return "bg-slate-500/20 text-slate-300 border-slate-500/35";
+  }
+}
 
 export function getPlatformBadgeClass(platform: Platform): string {
   switch (platform) {

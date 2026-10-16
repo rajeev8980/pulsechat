@@ -19,7 +19,11 @@ import {
   canPickDeviceContacts,
   parseContactPaste,
 } from "@/lib/device-contacts";
-import { PlatformBadge } from "./platform-icon";
+import {
+  getAvailabilityChipClass,
+  getChatAvailability,
+} from "@/lib/platform";
+import { PlatformBadge, PlatformIcon } from "./platform-icon";
 import { usePulse } from "./pulse-context";
 import { cn } from "@/lib/utils";
 
@@ -504,27 +508,7 @@ export function DiscoveryScreen() {
             </div>
           ) : (
             filtered.map((c) => {
-              let bridgeBadge: ReactNode;
-              if (c.onPulse || c.platform === "pulse") {
-                bridgeBadge = (
-                  <span className="text-[10px] bg-indigo-500/25 text-indigo-200 px-2 py-0.5 rounded-full border border-indigo-400/40 font-semibold">
-                    Available on PulseChat
-                  </span>
-                );
-              } else if (c.platform === "whatsapp") {
-                bridgeBadge = (
-                  <span className="text-[10px] bg-emerald-500/20 text-emerald-300 px-2 py-0.5 rounded-full border border-emerald-500/30 font-semibold">
-                    Mobile · WhatsApp
-                  </span>
-                );
-              } else {
-                bridgeBadge = (
-                  <span className="text-[10px] bg-amber-500/20 text-amber-300 px-2 py-0.5 rounded-full border border-amber-500/30 font-semibold">
-                    {c.platformName}
-                  </span>
-                );
-              }
-
+              const avail = getChatAvailability(c);
               const email =
                 c.email ||
                 c.peerEmail ||
@@ -537,10 +521,10 @@ export function DiscoveryScreen() {
                 <div
                   key={c.id}
                   className={cn(
-                    "glass-card glass-card-hover p-4 sm:p-5 rounded-2xl flex flex-col justify-between border",
+                    "p-4 sm:p-5 rounded-2xl flex flex-col justify-between border bg-[#202c33]",
                     c.onPulse
-                      ? "border-indigo-500/40 ring-1 ring-indigo-500/20"
-                      : "border-white/10",
+                      ? "border-[#00a884]/40 ring-1 ring-[#00a884]/20"
+                      : "border-[#222d34]",
                   )}
                 >
                   <div>
@@ -550,13 +534,28 @@ export function DiscoveryScreen() {
                         <img
                           src={c.avatar}
                           alt=""
-                          className="w-12 h-12 rounded-xl object-cover ring-2 ring-white/10"
+                          className="w-12 h-12 rounded-full object-cover ring-2 ring-white/10"
                         />
                         <div className="absolute -bottom-1 -right-1">
                           <PlatformBadge platform={c.platform} size="md" />
                         </div>
                       </div>
-                      {bridgeBadge}
+                      <span
+                        className={cn(
+                          "inline-flex items-center gap-1 text-[10px] font-bold px-2 py-0.5 rounded-full border",
+                          getAvailabilityChipClass(avail.tone),
+                        )}
+                      >
+                        <PlatformIcon
+                          platform={
+                            c.onPulse || c.platform === "pulse"
+                              ? "pulse"
+                              : c.platform
+                          }
+                          className="size-2.5"
+                        />
+                        {avail.detail}
+                      </span>
                     </div>
                     <h4 className="font-bold text-sm text-white">{c.name}</h4>
                     {mobile ? (
@@ -574,20 +573,18 @@ export function DiscoveryScreen() {
                         {c.handle}
                       </p>
                     ) : null}
-                    {c.onPulse ? (
-                      <p className="text-[11px] text-indigo-300 mt-1.5">
-                        Already on PulseChat — chat natively
-                      </p>
-                    ) : null}
+                    <p className="text-[11px] text-[#8696a0] mt-1.5">
+                      Chat app: <strong className="text-[#e9edef]">{avail.app}</strong>
+                    </p>
                   </div>
-                  <div className="mt-4 pt-3 border-t border-white/5 flex items-center justify-between">
+                  <div className="mt-4 pt-3 border-t border-[#222d34] flex items-center justify-between">
                     <span className="text-[11px] text-slate-400 font-medium">
-                      {c.onPulse ? "Native Pulse" : c.platformName}
+                      {avail.short}
                     </span>
                     <button
                       type="button"
                       onClick={() => startChat(c.id)}
-                      className="px-3.5 py-1.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold shadow-md shadow-indigo-600/30 transition active:scale-95"
+                      className="px-3.5 py-1.5 rounded-xl bg-[#00a884] hover:bg-[#06cf9c] text-[#111b21] text-xs font-bold transition active:scale-95"
                     >
                       Chat Now
                     </button>
