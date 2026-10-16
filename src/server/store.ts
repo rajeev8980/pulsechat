@@ -251,6 +251,41 @@ export function createSession(user: User): Session {
   return session;
 }
 
+/** Rehydrate a session after serverless cold start (cookie is source of truth). */
+export function restoreSession(input: {
+  id: string;
+  user: User;
+  createdAt: number;
+}): Session {
+  const store = getStore();
+  const normalized: User = {
+    ...input.user,
+    email: normalizeEmail(input.user.email),
+    phone: input.user.phone?.trim() || undefined,
+  };
+  const account = ensureUser(normalized);
+  const sessionUser: User = {
+    name: account.name,
+    email: account.email,
+    avatar: account.avatar,
+    phone: account.phone || normalized.phone,
+  };
+  const existing = store.sessions.get(input.id);
+  if (existing) {
+    existing.user = sessionUser;
+    schedulePersist();
+    return existing;
+  }
+  const session: Session = {
+    id: input.id,
+    user: sessionUser,
+    createdAt: input.createdAt || Date.now(),
+  };
+  store.sessions.set(session.id, session);
+  schedulePersist();
+  return session;
+}
+
 export function getSession(sessionId: string | undefined): Session | null {
   if (!sessionId) return null;
   return getStore().sessions.get(sessionId) ?? null;

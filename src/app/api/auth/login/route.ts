@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { SESSION_COOKIE } from "@/server/session";
+import { applySessionCookie } from "@/server/session";
 import { createSession } from "@/server/store";
 
 export async function POST(req: Request) {
@@ -20,7 +20,10 @@ export async function POST(req: Request) {
 
   const name =
     body?.name?.trim() ||
-    email.split("@")[0].replace(/[._]/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+    email
+      .split("@")[0]
+      .replace(/[._]/g, " ")
+      .replace(/\b\w/g, (c) => c.toUpperCase());
 
   const avatar =
     body?.avatar?.trim() ||
@@ -30,11 +33,6 @@ export async function POST(req: Request) {
 
   const session = createSession({ name, email, avatar, phone });
   const res = NextResponse.json({ user: session.user });
-  res.cookies.set(SESSION_COOKIE, session.id, {
-    httpOnly: true,
-    sameSite: "lax",
-    path: "/",
-    maxAge: 60 * 60 * 24 * 7,
-  });
+  applySessionCookie(res, session);
   return res;
 }

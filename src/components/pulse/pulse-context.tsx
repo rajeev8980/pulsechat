@@ -12,6 +12,11 @@ import {
 } from "react";
 import { api } from "@/lib/api";
 import { GUEST_USER } from "@/lib/data";
+import {
+  clearContactsLocal,
+  loadContactsLocal,
+  saveContactsLocal,
+} from "@/lib/local-cache";
 import type {
   Contact,
   Message,
@@ -150,10 +155,31 @@ export function PulseProvider({ children }: { children: ReactNode }) {
     });
   }, []);
 
-  const loadContacts = useCallback(async () => {
+  const loadContacts = useCallback(async (ownerEmail?: string) => {
     const data = await api.contacts();
-    setContacts(data.contacts);
-    return data.contacts;
+    let list = data.contacts;
+    // Serverless cold start can empty the in-memory store — restore device cache
+    if (list.length === 0 && ownerEmail) {
+      const cached = loadContactsLocal(ownerEmail);
+      if (cached && cached.length > 0) {
+        try {
+          const restored = await api.importContacts(
+            cached.map((c) => ({
+              name: c.name,
+              email: c.email || c.peerEmail,
+              phone: c.mobile || c.phone,
+              platform: c.platform,
+            })),
+          );
+          list = restored.contacts;
+        } catch {
+          list = cached;
+        }
+      }
+    }
+    if (ownerEmail && list.length > 0) saveContactsLocal(ownerEmail, list);
+    setContacts(list);
+    return list;
   }, []);
 
   const refreshMessages = useCallback(async (contactId: string) => {
@@ -222,7 +248,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
         if (sessionUser) {
           setUser(sessionUser);
           try {
-            const list = await loadContacts();
+            const list = await loadContacts(sessionUser.email);
             if (cancelled) return;
             const first = list[0]?.id || "";
             setActiveContactId(first);
@@ -277,7 +303,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
       try {
         const { user: loggedIn } = await api.login(next);
         setUser(loggedIn);
-        const list = await loadContacts();
+        const list = await loadContacts(loggedIn.email);
         const first = list[0]?.id || "";
         setActiveContactId(first);
         if (first) await refreshMessages(first);
@@ -290,7 +316,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
                 (onPulse
                   ? ` · ${onPulse} contact${onPulse === 1 ? "" : "s"} on PulseChat`
                   : " — fetch phonebook to see who's available")
-            : `Signed in — add your mobile next time; tap Fetch mobiles to find who's on PulseChat`,
+            : `Signed in — stay logged in until you sign out`,
         );
         setScreen("discovery");
         // Android/Chrome: prompt immediately so one tap auto-opens Contact Picker
@@ -327,19 +353,22 @@ export function PulseProvider({ children }: { children: ReactNode }) {
   );
 
   const signOut = useCallback(async () => {
+    const email = user.email;
     try {
       await api.logout();
     } catch {
       // ignore
     }
+    if (email) clearContactsLocal(email);
     setUser(GUEST_USER);
     setContacts([]);
     setMessages({});
     setActiveContactId("");
+    setContactFetchPrompt(false);
     setScreen("landing");
     setMobileSidebarOpen(true);
     showToast("Signed out of PulseChat");
-  }, [showToast]);
+  }, [showToast, user.email]);
 
   const importPhonebook = useCallback(
     async (
@@ -351,6 +380,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
       try {
         const data = await api.importContacts(drafts);
         setContacts(data.contacts);
+        if (user.email) saveContactsLocal(user.email, data.contacts);
         setContactFetchPrompt(false);
         const mobiles = drafts.filter((d) => d.phone).length;
         const avail = data.availableOnPulse ?? 0;
@@ -373,7 +403,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
         setIsSyncing(false);
       }
     },
-    [showToast],
+    [showToast, user.email],
   );
 
   const resyncContacts = useCallback(async () => {
@@ -444,9 +474,11 @@ export function PulseProvider({ children }: { children: ReactNode }) {
         const { contact } = await api.addContact(input);
         setContacts((prev) => {
           const idx = prev.findIndex((c) => c.id === contact.id);
-          if (idx === -1) return [contact, ...prev];
-          const next = [...prev];
-          next[idx] = contact;
+          const next =
+            idx === -1
+              ? [contact, ...prev]
+              : prev.map((c, i) => (i === idx ? contact : c));
+          if (user.email) saveContactsLocal(user.email, next);
           return next;
         });
         setMessages((prev) =>
@@ -470,7 +502,7 @@ export function PulseProvider({ children }: { children: ReactNode }) {
         setIsAddingContact(false);
       }
     },
-    [activeContactId, showToast],
+    [activeContactId, showToast, user.email],
   );
 
   const handoffToDevice = useCallback(
