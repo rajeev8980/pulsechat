@@ -3,6 +3,7 @@
 import { AmbientGlow } from "./ambient";
 import { AndroidInstallBanner } from "./android-install-banner";
 import { ChatWorkspace } from "./chat-workspace";
+import { ContactFetchModal } from "./contact-fetch-modal";
 import { DeviceSimulator } from "./device-simulator";
 import { DiscoveryScreen } from "./discovery-screen";
 import { GoogleModal } from "./google-modal";
@@ -15,19 +16,14 @@ function Screens() {
 
   if (isBooting) {
     return (
-      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6">
-        <div className="w-12 h-12 rounded-2xl pulse-grad flex items-center justify-center shadow-lg shadow-indigo-500/30 animate-pulse">
-          <span className="text-white text-xl font-black">P</span>
+      <div className="flex-1 flex flex-col items-center justify-center gap-4 px-6 bg-[#0b141a]">
+        <div className="w-12 h-12 rounded-full bg-[#00a884] flex items-center justify-center shadow-lg shadow-emerald-900/40 animate-pulse">
+          <span className="text-[#0b141a] text-xl font-black">P</span>
         </div>
-        <p className="text-sm text-slate-300 font-semibold">
-          Connecting to PulseChat API…
-        </p>
-        <p className="text-[11px] text-slate-500 font-mono">
-          Restoring session & platform routers
-        </p>
+        <p className="text-sm text-slate-300 font-semibold">Opening chats…</p>
         <button
           type="button"
-          className="mt-2 text-xs font-semibold text-indigo-300 underline"
+          className="mt-2 text-xs font-semibold text-[#00a884] underline"
           onClick={() => window.location.reload()}
         >
           Tap to retry / refresh
@@ -52,9 +48,15 @@ function Screens() {
           </div>
         </div>
       )}
-      {screen === "landing" && <LandingScreen />}
+      {screen === "landing" && (
+        <>
+          <AmbientGlow />
+          <LandingScreen />
+        </>
+      )}
       {screen === "discovery" && <DiscoveryScreen />}
       {screen === "chat" && <ChatWorkspace />}
+      <ContactFetchModal />
       <GoogleModal />
       <DeviceSimulator />
       <AndroidInstallBanner />
@@ -66,8 +68,7 @@ function Screens() {
 export function PulseApp() {
   return (
     <PulseProvider>
-      <div className="bg-[#070b14] text-slate-100 font-sans antialiased min-h-dvh selection:bg-indigo-500 selection:text-white flex flex-col justify-between overflow-x-hidden relative pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
-        <AmbientGlow />
+      <div className="bg-[#0b141a] text-slate-100 font-sans antialiased min-h-dvh selection:bg-[#00a884]/40 selection:text-white flex flex-col justify-between overflow-x-hidden relative pb-[env(safe-area-inset-bottom)] pt-[env(safe-area-inset-top)]">
         <div className="relative z-10 flex-1 flex flex-col w-full min-h-0">
           <Screens />
         </div>

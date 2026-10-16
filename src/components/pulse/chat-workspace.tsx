@@ -3,15 +3,16 @@
 import { FormEvent, useEffect, useRef, useState } from "react";
 import {
   AlertTriangle,
+  ArrowLeft,
   CheckCheck,
   LogOut,
-  Menu,
   MessageCircle,
+  MoreVertical,
   Phone,
+  Plus,
   RefreshCw,
+  Search,
   Send,
-  Shield,
-  Smartphone,
   Smile,
   UserPlus,
 } from "lucide-react";
@@ -27,7 +28,7 @@ import { cn } from "@/lib/utils";
 
 const SIDEBAR_FILTERS: { key: SidebarFilter; label: string }[] = [
   { key: "all", label: "All" },
-  { key: "pulse", label: "Native" },
+  { key: "pulse", label: "Pulse" },
   { key: "wa_tg", label: "WA / TG" },
   { key: "ig_fb", label: "IG / FB" },
   { key: "sms", label: "SMS" },
@@ -86,8 +87,18 @@ export function ChatWorkspace() {
       !q ||
       c.name.toLowerCase().includes(q) ||
       c.handle.toLowerCase().includes(q) ||
+      (c.mobile || c.phone || "").toLowerCase().includes(q) ||
       c.platformName.toLowerCase().includes(q);
     return matchesChannel && matchesQuery;
+  });
+
+  // Sort like WhatsApp: conversations with recent messages first
+  const sorted = [...filtered].sort((a, b) => {
+    const ta = (messages[a.id] || []).at(-1);
+    const tb = (messages[b.id] || []).at(-1);
+    if (ta && !tb) return -1;
+    if (!ta && tb) return 1;
+    return a.name.localeCompare(b.name);
   });
 
   const thread = activeContact ? messages[activeContact.id] || [] : [];
@@ -102,66 +113,76 @@ export function ChatWorkspace() {
   }
 
   return (
-    <section className="flex-1 h-[calc(100dvh-env(safe-area-inset-top)-env(safe-area-inset-bottom)-0.5rem)] max-w-7xl mx-auto w-full p-1.5 sm:p-4 animate-in fade-in duration-300 min-h-0">
-      <div className="h-full w-full glass-panel rounded-2xl sm:rounded-3xl overflow-hidden flex border border-white/10 shadow-2xl relative">
+    <section className="flex-1 h-[100dvh] max-h-[100dvh] w-full animate-in fade-in duration-300 min-h-0">
+      <div className="h-full w-full overflow-hidden flex relative bg-[#0b141a]">
+        {/* ===== CHATS LIST (WhatsApp-style) ===== */}
         <aside
           className={cn(
-            "w-full md:w-80 lg:w-96 border-r border-white/10 flex-col bg-[#0b101d]/90 backdrop-blur-2xl transition-all duration-300 min-h-0",
+            "w-full md:w-[380px] lg:w-[420px] border-r border-[#222d34] flex-col bg-[#111b21] transition-all duration-200 min-h-0 relative",
             mobileSidebarOpen ? "flex" : "hidden md:flex",
-            !mobileSidebarOpen && "md:flex",
           )}
         >
-          <div className="p-4 border-b border-white/10 flex items-center justify-between">
+          <header className="px-4 py-3 bg-[#202c33] flex items-center justify-between shrink-0">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="relative shrink-0">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={user.avatar}
-                  alt=""
-                  className="w-10 h-10 rounded-xl object-cover ring-2 ring-indigo-500/50"
-                />
-                <span className="absolute -bottom-0.5 -right-0.5 w-3 h-3 bg-emerald-400 rounded-full ring-2 ring-slate-900" />
-              </div>
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={user.avatar}
+                alt=""
+                className="w-10 h-10 rounded-full object-cover"
+              />
               <div className="min-w-0">
-                <h4 className="text-xs sm:text-sm font-bold text-white truncate leading-tight">
+                <h1 className="text-[22px] font-semibold text-[#e9edef] leading-tight tracking-tight">
+                  Chats
+                </h1>
+                <p className="text-[11px] text-[#8696a0] truncate">
                   {user.name}
-                </h4>
-                <p className="text-[10px] text-slate-400 truncate leading-tight font-mono">
-                  {user.email}
                 </p>
               </div>
             </div>
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-center gap-1">
               <button
                 type="button"
                 onClick={() => setScreen("discovery")}
-                className="p-2.5 min-h-11 min-w-11 rounded-xl text-slate-400 hover:text-white hover:bg-white/5 transition flex items-center justify-center"
-                title="Find Synced Contacts"
+                className="p-2.5 min-h-11 min-w-11 rounded-full text-[#aebac1] hover:bg-white/5 flex items-center justify-center"
+                title="New chat"
               >
-                <UserPlus className="size-4" />
+                <UserPlus className="size-5" />
               </button>
               <button
                 type="button"
                 onClick={signOut}
-                className="p-2.5 min-h-11 min-w-11 rounded-xl text-rose-400 hover:text-rose-300 hover:bg-rose-500/10 transition flex items-center justify-center"
-                title="Sign Out"
+                className="p-2.5 min-h-11 min-w-11 rounded-full text-[#aebac1] hover:bg-white/5 flex items-center justify-center"
+                title="Sign out"
               >
-                <LogOut className="size-4" />
+                <LogOut className="size-5" />
               </button>
+            </div>
+          </header>
+
+          <div className="px-3 py-2 bg-[#111b21]">
+            <div className="relative">
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#8696a0] size-4" />
+              <input
+                value={sidebarSearch}
+                onChange={(e) => setSidebarSearch(e.target.value)}
+                type="search"
+                placeholder="Search or start a new chat"
+                className="w-full bg-[#202c33] text-sm rounded-lg pl-10 pr-3 py-2.5 min-h-11 text-[#e9edef] placeholder-[#8696a0] border-0 focus:outline-none focus:ring-1 focus:ring-[#00a884]/50"
+              />
             </div>
           </div>
 
-          <div className="px-3 pt-3 pb-2 flex gap-1 overflow-x-auto text-[11px] no-scrollbar">
+          <div className="px-2 pb-1 flex gap-1.5 overflow-x-auto text-[12px] no-scrollbar">
             {SIDEBAR_FILTERS.map((f) => (
               <button
                 key={f.key}
                 type="button"
                 onClick={() => setSidebarFilter(f.key)}
                 className={cn(
-                  "px-2.5 py-1 rounded-lg whitespace-nowrap transition",
+                  "px-3 py-1.5 rounded-full whitespace-nowrap transition font-medium",
                   sidebarFilter === f.key
-                    ? "bg-indigo-600 text-white font-semibold"
-                    : "bg-white/5 text-slate-400 hover:text-white font-medium",
+                    ? "bg-[#00a884]/20 text-[#00a884]"
+                    : "bg-[#202c33] text-[#8696a0] hover:text-[#e9edef]",
                 )}
               >
                 {f.label}
@@ -169,40 +190,26 @@ export function ChatWorkspace() {
             ))}
           </div>
 
-          <div className="px-3 py-2">
-            <div className="relative">
-              <MessageCircle className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400 size-3" />
-              <input
-                value={sidebarSearch}
-                onChange={(e) => setSidebarSearch(e.target.value)}
-                type="text"
-                placeholder="Filter conversations or platform..."
-                className="w-full glass-card text-xs rounded-xl pl-8 pr-3 py-2 text-white placeholder-slate-500 border border-white/10 focus:outline-none focus:border-indigo-500"
-              />
-            </div>
-          </div>
-
-          <div className="flex-1 overflow-y-auto divide-y divide-white/5 p-2 space-y-1">
-            {filtered.length === 0 ? (
-              <div className="text-center py-10 px-4 text-slate-500 text-xs space-y-3">
+          <div className="flex-1 overflow-y-auto">
+            {sorted.length === 0 ? (
+              <div className="text-center py-16 px-6 text-[#8696a0] text-sm space-y-4">
+                <MessageCircle className="size-12 mx-auto text-[#3b4a54]" />
                 <p>
                   {contacts.length === 0
-                    ? "No contacts yet."
-                    : "No conversations match this filter."}
+                    ? "No chats yet. Fetch contacts or start a new chat."
+                    : "No chats match this filter."}
                 </p>
-                {contacts.length === 0 && (
-                  <button
-                    type="button"
-                    onClick={() => setScreen("discovery")}
-                    className="inline-flex items-center gap-1.5 px-3 py-2 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
-                  >
-                    <UserPlus className="size-3.5" />
-                    Add a contact
-                  </button>
-                )}
+                <button
+                  type="button"
+                  onClick={() => setScreen("discovery")}
+                  className="inline-flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#00a884] hover:bg-[#06cf9c] text-[#111b21] text-sm font-bold"
+                >
+                  <Plus className="size-4" />
+                  New chat
+                </button>
               </div>
             ) : (
-              filtered.map((c) => {
+              sorted.map((c) => {
                 const t = messages[c.id] || [];
                 const mobile =
                   c.mobile ||
@@ -211,20 +218,12 @@ export function ChatWorkspace() {
                   t.length > 0
                     ? t[t.length - 1].text
                     : c.onPulse
-                      ? mobile
-                        ? `On PulseChat · ${mobile}`
-                        : "On PulseChat · start chat"
-                      : c.platform === "pulse"
-                        ? "Start encrypted chat..."
-                        : mobile
-                          ? `Mobile ${mobile}`
-                          : `Bridge ready for ${c.platformName}`;
+                      ? "Tap to chat on PulseChat"
+                      : mobile
+                        ? mobile
+                        : `Chat on ${c.platformName}`;
                 const lastTime =
-                  t.length > 0
-                    ? t[t.length - 1].time
-                    : c.onPulse
-                      ? "Pulse"
-                      : "Bridge";
+                  t.length > 0 ? t[t.length - 1].time : "";
                 const isActive = c.id === activeContactId;
                 return (
                   <button
@@ -232,12 +231,10 @@ export function ChatWorkspace() {
                     type="button"
                     onClick={() => setActiveContactId(c.id)}
                     className={cn(
-                      "w-full p-3 min-h-[4.25rem] rounded-2xl flex items-center gap-3 cursor-pointer transition text-left touch-manipulation",
+                      "w-full px-3 py-3 flex items-center gap-3 cursor-pointer transition text-left touch-manipulation border-b border-[#222d34]/80",
                       isActive
-                        ? "bg-indigo-600/20 border border-indigo-500/40 text-white"
-                        : c.onPulse
-                          ? "hover:bg-white/5 active:bg-white/10 text-slate-300 border border-indigo-500/20"
-                          : "hover:bg-white/5 active:bg-white/10 text-slate-300 border border-transparent",
+                        ? "bg-[#2a3942]"
+                        : "hover:bg-[#202c33] active:bg-[#2a3942]",
                     )}
                   >
                     <div className="relative shrink-0">
@@ -245,35 +242,27 @@ export function ChatWorkspace() {
                       <img
                         src={c.avatar}
                         alt=""
-                        className={cn(
-                          "w-10 h-10 rounded-xl object-cover ring-2",
-                          isActive ? "ring-indigo-400" : "ring-white/10",
-                        )}
+                        className="w-12 h-12 rounded-full object-cover"
                       />
-                      <div className="absolute -bottom-1 -right-1">
+                      <div className="absolute -bottom-0.5 -right-0.5">
                         <PlatformBadge platform={c.platform} />
                       </div>
                     </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between mb-0.5 gap-1">
-                        <h5
-                          className={cn(
-                            "text-xs font-bold truncate",
-                            isActive ? "text-indigo-300" : "text-white",
-                          )}
-                        >
+                    <div className="flex-1 min-w-0 py-0.5">
+                      <div className="flex items-center justify-between gap-2">
+                        <h5 className="text-[16px] font-normal text-[#e9edef] truncate">
                           {c.name}
-                          {c.onPulse ? (
-                            <span className="ml-1 text-[9px] font-semibold text-indigo-300">
-                              · on Pulse
-                            </span>
-                          ) : null}
                         </h5>
-                        <span className="text-[10px] text-slate-500 font-mono shrink-0">
+                        <span className="text-[11px] text-[#8696a0] shrink-0">
                           {lastTime}
                         </span>
                       </div>
-                      <p className="text-[11px] text-slate-400 truncate">
+                      <p className="text-[13px] text-[#8696a0] truncate mt-0.5">
+                        {c.onPulse ? (
+                          <span className="text-[#00a884] font-medium mr-1">
+                            ·
+                          </span>
+                        ) : null}
                         {lastMsg}
                       </p>
                     </div>
@@ -283,120 +272,98 @@ export function ChatWorkspace() {
             )}
           </div>
 
-          <div className="p-3 border-t border-white/10 bg-black/20 flex items-center justify-between text-[11px] text-slate-400">
-            <span className="flex items-center gap-1.5">
-              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
-              Pulse Gateway · common messaging API
-            </span>
-            <Shield className="size-3.5 text-indigo-400" />
-          </div>
+          {/* FAB — new chat */}
+          <button
+            type="button"
+            onClick={() => setScreen("discovery")}
+            className="absolute bottom-6 right-5 w-14 h-14 rounded-2xl bg-[#00a884] hover:bg-[#06cf9c] text-[#111b21] shadow-xl flex items-center justify-center touch-manipulation"
+            aria-label="New chat"
+          >
+            <Plus className="size-7" strokeWidth={2.5} />
+          </button>
         </aside>
 
+        {/* ===== CONVERSATION ===== */}
         <main
           className={cn(
-            "flex-1 flex-col bg-[#080d1a]/80 relative overflow-hidden",
+            "flex-1 flex-col relative overflow-hidden min-h-0",
             mobileSidebarOpen ? "hidden md:flex" : "flex",
           )}
+          style={{
+            backgroundColor: "#0b141a",
+            backgroundImage:
+              "radial-gradient(ellipse at top, rgba(0,168,132,0.06), transparent 55%)",
+          }}
         >
           {!activeContact ? (
-            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-slate-500 text-sm px-6 text-center">
-              <p>
-                {contacts.length === 0
-                  ? "Add a contact from Discovery to start messaging."
-                  : "Select a conversation to start messaging."}
+            <div className="flex-1 flex flex-col items-center justify-center gap-3 text-[#8696a0] text-sm px-6 text-center bg-[#222e35]">
+              <MessageCircle className="size-16 text-[#3b4a54]" />
+              <h2 className="text-2xl font-light text-[#e9edef]">
+                PulseChat
+              </h2>
+              <p className="max-w-sm">
+                Select a chat to start messaging — just like WhatsApp.
               </p>
-              {contacts.length === 0 && (
-                <button
-                  type="button"
-                  onClick={() => setScreen("discovery")}
-                  className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-xl bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-bold"
-                >
-                  <UserPlus className="size-3.5" />
-                  Go to contacts
-                </button>
-              )}
             </div>
           ) : (
             <>
-              <header className="p-3.5 border-b border-white/10 flex items-center justify-between bg-[#0e1526]/80 backdrop-blur-md z-20 shrink-0">
-                <div className="flex items-center gap-3 min-w-0">
+              <header className="px-2 sm:px-3 py-2 bg-[#202c33] flex items-center justify-between z-20 shrink-0 gap-2">
+                <div className="flex items-center gap-2 min-w-0">
                   <button
                     type="button"
                     onClick={() => setMobileSidebarOpen(true)}
-                    className="md:hidden text-slate-300 p-2.5 min-h-11 min-w-11 hover:bg-white/5 rounded-lg flex items-center justify-center"
-                    aria-label="Open conversations"
+                    className="md:hidden text-[#aebac1] p-2 min-h-11 min-w-11 hover:bg-white/5 rounded-full flex items-center justify-center"
+                    aria-label="Back to chats"
                   >
-                    <Menu className="size-5" />
+                    <ArrowLeft className="size-5" />
                   </button>
-                  <div className="relative shrink-0">
-                    {/* eslint-disable-next-line @next/next/no-img-element */}
-                    <img
-                      src={activeContact.avatar}
-                      alt=""
-                      className="w-10 h-10 rounded-xl object-cover ring-2 ring-white/10"
-                    />
-                    <div className="absolute -bottom-1 -right-1">
-                      <PlatformBadge platform={activeContact.platform} />
-                    </div>
-                  </div>
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img
+                    src={activeContact.avatar}
+                    alt=""
+                    className="w-10 h-10 rounded-full object-cover shrink-0"
+                  />
                   <div className="min-w-0">
-                    <div className="flex items-center gap-2 flex-wrap">
-                      <h3 className="font-bold text-sm text-white leading-tight">
-                        {activeContact.name}
-                      </h3>
-                      <span
-                        className={cn(
-                          "text-[10px] font-semibold px-2 py-0.5 rounded-full border inline-flex items-center gap-1",
-                          getPlatformTagStyles(activeContact.platform),
-                        )}
-                      >
-                        <PlatformIcon
-                          platform={activeContact.platform}
-                          className="size-2.5"
-                        />
-                        {activeContact.platformName}
-                      </span>
-                    </div>
-                    <div className="flex items-center gap-2 text-[11px] text-slate-400 mt-0.5 truncate">
-                      <span className="inline-flex items-center gap-1 truncate">
-                        <span className="w-2 h-2 rounded-full bg-emerald-400 inline-block" />
-                        {activeContact.status}
-                      </span>
-                      <span className="text-slate-600">•</span>
-                      <span className="font-mono text-slate-400 truncate">
-                        {[
-                          activeContact.email || activeContact.peerEmail,
-                          activeContact.phone &&
-                          !activeContact.phone.includes("@")
-                            ? activeContact.phone
-                            : null,
-                        ]
-                          .filter(Boolean)
-                          .join(" · ") || activeContact.handle}
-                      </span>
-                    </div>
+                    <h3 className="font-medium text-[16px] text-[#e9edef] leading-tight truncate">
+                      {activeContact.name}
+                    </h3>
+                    <p className="text-[12px] text-[#8696a0] truncate">
+                      {activeContact.onPulse
+                        ? "online · PulseChat"
+                        : activeContact.status}
+                    </p>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-2 shrink-0">
-                  <button
-                    type="button"
-                    onClick={openSimulator}
-                    className="flex items-center gap-1.5 text-xs font-bold bg-gradient-to-r from-purple-600 via-indigo-600 to-cyan-600 hover:opacity-90 text-white px-3 py-2.5 min-h-11 rounded-xl shadow-lg transition active:scale-95 touch-manipulation"
+                <div className="flex items-center gap-0.5 shrink-0">
+                  <span
+                    className={cn(
+                      "hidden sm:inline-flex text-[10px] font-semibold px-2 py-0.5 rounded-full border items-center gap-1 mr-1",
+                      getPlatformTagStyles(activeContact.platform),
+                    )}
                   >
-                    <Smartphone className="size-3.5" />
-                    <span className="hidden sm:inline">Simulate Recipient</span>
-                    <span className="sm:hidden">Recipient</span>
-                  </button>
+                    <PlatformIcon
+                      platform={activeContact.platform}
+                      className="size-2.5"
+                    />
+                    {activeContact.platformName}
+                  </span>
                   <button
                     type="button"
                     onClick={() =>
-                      showToast("Testing voice audio gateway...")
+                      showToast("Voice calls coming soon on Pulse gateway")
                     }
-                    className="p-2.5 min-h-11 min-w-11 text-slate-400 hover:text-white hover:bg-white/5 rounded-xl transition flex items-center justify-center"
-                    title="Carrier Audio Call"
+                    className="p-2.5 min-h-11 min-w-11 text-[#aebac1] hover:bg-white/5 rounded-full flex items-center justify-center"
                   >
-                    <Phone className="size-4" />
+                    <Phone className="size-5" />
+                  </button>
+                  <button
+                    type="button"
+                    onClick={openSimulator}
+                    className="p-2.5 min-h-11 min-w-11 text-[#aebac1] hover:bg-white/5 rounded-full flex items-center justify-center"
+                    title="More"
+                  >
+                    <MoreVertical className="size-5" />
                   </button>
                 </div>
               </header>
@@ -405,26 +372,14 @@ export function ChatWorkspace() {
 
               <div
                 ref={streamRef}
-                className="flex-1 overflow-y-auto p-4 sm:p-6 space-y-4"
+                className="flex-1 overflow-y-auto px-3 sm:px-8 py-3 space-y-1.5"
               >
-                <div className="flex justify-center my-2">
-                  <span className="text-[10px] font-mono px-3 py-1 rounded-full bg-slate-800/80 text-slate-400 border border-white/5">
-                    {activeContact.platform === "pulse"
-                      ? `Pulse↔Pulse live chat with ${activeContact.peerEmail || activeContact.handle} — they see this when signed in with that email`
-                      : activeContact.platform === "whatsapp"
-                        ? `Real WhatsApp: Send opens WhatsApp for ${activeContact.phone} — they only get it after you tap Send there`
-                        : activeContact.platform === "telegram"
-                          ? `Real Telegram: Send opens Telegram for ${activeContact.handle || activeContact.phone} — paste/send there to deliver`
-                          : activeContact.platform === "sms"
-                            ? `Real SMS: Send opens your Messages app for ${activeContact.phone}`
-                            : `${activeContact.platformName} is saved in PulseChat only (no live API yet)`}
-                  </span>
-                </div>
-
                 {thread.length === 0 && (
-                  <div className="text-center py-12 text-slate-500 text-sm glass-card rounded-2xl border border-white/5">
-                    No messages yet. Say hello across{" "}
-                    {activeContact.platformName}.
+                  <div className="flex justify-center my-8">
+                    <div className="max-w-xs text-center text-[12px] text-[#8696a0] bg-[#182229] px-4 py-3 rounded-lg border border-[#222d34]">
+                      Messages are end-to-end on Pulse when both sides use
+                      PulseChat. Say hello to {activeContact.name}.
+                    </div>
                   </div>
                 )}
 
@@ -432,118 +387,89 @@ export function ChatWorkspace() {
                   msg.sender === "me" ? (
                     <div
                       key={msg.id}
-                      className="flex flex-col items-end max-w-xl ml-auto"
+                      className="flex flex-col items-end max-w-[85%] sm:max-w-md ml-auto"
                     >
-                      <div className="flex items-center gap-2 mb-1">
-                        <span className="text-[10px] text-slate-500 font-mono">
-                          {msg.time}
-                        </span>
-                        <span className="text-xs font-bold text-indigo-300">
-                          You
-                        </span>
-                      </div>
                       <div
                         className={cn(
-                          "text-white text-xs sm:text-sm p-3.5 rounded-2xl rounded-br-none shadow-md leading-relaxed",
-                          msg.failed
-                            ? "bg-rose-600/80 shadow-rose-600/20"
-                            : "bg-indigo-600 shadow-indigo-600/20",
+                          "text-[#e9edef] text-[14.2px] px-2.5 py-1.5 rounded-lg rounded-tr-none shadow-sm leading-relaxed relative",
+                          msg.failed ? "bg-rose-800/90" : "bg-[#005c4b]",
                         )}
                       >
-                        {msg.text}
+                        <span className="pr-12 whitespace-pre-wrap break-words">
+                          {msg.text}
+                        </span>
+                        <span className="absolute bottom-1 right-2 flex items-center gap-0.5 text-[10px] text-[#ffffff99]">
+                          {msg.time}
+                          {!msg.failed &&
+                            (msg.delivery === "whatsapp_api" ||
+                            msg.delivery === "pulse" ? (
+                              <CheckCheck className="size-3.5 text-[#53bdeb]" />
+                            ) : (
+                              <CheckCheck className="size-3.5 text-[#ffffff99]" />
+                            ))}
+                        </span>
                       </div>
                       {msg.failed ? (
                         <button
                           type="button"
                           onClick={() => retryMessage(msg.id)}
-                          className="flex items-center gap-1 text-[10px] text-rose-300 mt-1 font-mono hover:text-rose-200"
+                          className="flex items-center gap-1 text-[10px] text-rose-300 mt-1 font-mono"
                         >
                           <AlertTriangle className="size-3" />
                           Failed — tap to retry
                           <RefreshCw className="size-3" />
                         </button>
                       ) : (
-                        <div className="flex flex-col items-end gap-1 mt-1">
-                          <div className="flex items-center gap-1 text-[10px] text-slate-400 font-mono">
-                            {msg.delivery === "whatsapp_api" ||
-                            msg.delivery === "pulse" ? (
-                              <CheckCheck className="size-3 text-emerald-400" />
-                            ) : (
-                              <AlertTriangle className="size-3 text-amber-400" />
-                            )}
-                            <span>
-                              {getPlatformDeliveryTag(
-                                activeContact.platform,
-                                msg.delivery,
-                              )}
-                            </span>
-                          </div>
-                          {(activeContact.platform === "whatsapp" ||
-                            activeContact.platform === "telegram" ||
-                            activeContact.platform === "sms") &&
-                            msg.delivery !== "whatsapp_api" && (
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  const plat =
-                                    activeContact.platform === "sms"
-                                      ? "sms"
-                                      : activeContact.platform === "telegram"
-                                        ? "telegram"
-                                        : "whatsapp";
-                                  const r = openExternalChat(
-                                    plat,
-                                    activeContact.phone || activeContact.handle,
-                                    msg.text,
-                                  );
-                                  showToast(
-                                    r.ok
-                                      ? plat === "whatsapp"
-                                        ? "WhatsApp opened — tap Send to deliver"
-                                        : plat === "telegram"
-                                          ? "Telegram opened — paste & send there"
-                                          : "Messages opened — tap Send to deliver"
-                                      : r.error,
-                                  );
-                                }}
-                                className="text-[10px] font-bold text-emerald-300 hover:text-emerald-200 underline"
-                              >
-                                {activeContact.platform === "whatsapp"
-                                  ? "Open in WhatsApp again"
-                                  : activeContact.platform === "telegram"
-                                    ? "Open in Telegram again"
-                                    : "Open in Messages again"}
-                              </button>
-                            )}
-                        </div>
+                        <span className="text-[10px] text-[#8696a0] mt-0.5 px-1">
+                          {getPlatformDeliveryTag(
+                            activeContact.platform,
+                            msg.delivery,
+                          )}
+                        </span>
                       )}
+                      {(activeContact.platform === "whatsapp" ||
+                        activeContact.platform === "telegram" ||
+                        activeContact.platform === "sms") &&
+                        !msg.failed &&
+                        msg.delivery !== "whatsapp_api" && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const plat =
+                                activeContact.platform === "sms"
+                                  ? "sms"
+                                  : activeContact.platform === "telegram"
+                                    ? "telegram"
+                                    : "whatsapp";
+                              const r = openExternalChat(
+                                plat,
+                                activeContact.phone || activeContact.handle,
+                                msg.text,
+                              );
+                              showToast(
+                                r.ok
+                                  ? "App opened — tap Send to deliver"
+                                  : r.error,
+                              );
+                            }}
+                            className="text-[10px] font-bold text-[#00a884] underline mt-0.5"
+                          >
+                            Open again to send
+                          </button>
+                        )}
                     </div>
                   ) : (
                     <div
                       key={msg.id}
-                      className="flex items-start gap-2.5 max-w-xl"
+                      className="flex flex-col items-start max-w-[85%] sm:max-w-md"
                     >
-                      {/* eslint-disable-next-line @next/next/no-img-element */}
-                      <img
-                        src={activeContact.avatar}
-                        alt=""
-                        className="w-8 h-8 rounded-full object-cover shrink-0 ring-1 ring-white/10 mt-1"
-                      />
-                      <div>
-                        <div className="flex items-center gap-2 mb-1 flex-wrap">
-                          <span className="text-xs font-bold text-white">
-                            {activeContact.name}
-                          </span>
-                          <span className="text-[9px] font-semibold px-1.5 py-0.5 rounded bg-white/10 text-slate-300 font-mono">
-                            via {activeContact.platformName}
-                          </span>
-                          <span className="text-[10px] text-slate-500 font-mono">
-                            {msg.time}
-                          </span>
-                        </div>
-                        <div className="glass-panel text-slate-200 text-xs sm:text-sm p-3.5 rounded-2xl rounded-bl-none border border-white/10 shadow-sm leading-relaxed">
+                      <div className="bg-[#202c33] text-[#e9edef] text-[14.2px] px-2.5 py-1.5 rounded-lg rounded-tl-none shadow-sm leading-relaxed relative">
+                        <span className="pr-10 whitespace-pre-wrap break-words">
                           {msg.text}
-                        </div>
+                        </span>
+                        <span className="absolute bottom-1 right-2 text-[10px] text-[#ffffff99]">
+                          {msg.time}
+                        </span>
                       </div>
                     </div>
                   ),
@@ -551,25 +477,22 @@ export function ChatWorkspace() {
               </div>
 
               {typingContactId === activeContact.id && (
-                <div className="px-6 py-2 text-xs text-indigo-300 flex items-center gap-2 font-medium bg-[#080d1a]/50">
-                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full typing-dot" />
-                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full typing-dot" />
-                  <span className="w-1.5 h-1.5 bg-indigo-400 rounded-full typing-dot" />
-                  <span className="text-slate-400 ml-1">
-                    {activeContact.name} ({activeContact.platformName}) is
-                    typing...
-                  </span>
+                <div className="px-4 py-1 text-xs text-[#00a884] flex items-center gap-2">
+                  <span className="w-1.5 h-1.5 bg-[#00a884] rounded-full typing-dot" />
+                  <span className="w-1.5 h-1.5 bg-[#00a884] rounded-full typing-dot" />
+                  <span className="w-1.5 h-1.5 bg-[#00a884] rounded-full typing-dot" />
+                  <span>{activeContact.name} is typing…</span>
                 </div>
               )}
 
               {emojiOpen && (
-                <div className="px-4 py-2 border-t border-white/10 bg-[#0e1526]/90 flex items-center gap-2 overflow-x-auto">
+                <div className="px-3 py-2 bg-[#202c33] flex items-center gap-2 overflow-x-auto border-t border-[#222d34]">
                   {EMOJIS.map((char) => (
                     <button
                       key={char}
                       type="button"
                       onClick={() => setDraft((d) => d + char)}
-                      className="p-1.5 hover:bg-white/10 rounded-lg text-base"
+                      className="p-1.5 hover:bg-white/10 rounded-lg text-lg"
                     >
                       {char}
                     </button>
@@ -577,41 +500,38 @@ export function ChatWorkspace() {
                 </div>
               )}
 
-              <footer className="p-3 sm:p-3.5 border-t border-white/10 bg-[#0e1526]/80 backdrop-blur-md shrink-0 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+              <footer className="px-2 py-2 bg-[#202c33] shrink-0 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
                 <form
                   onSubmit={onSubmit}
-                  className="flex items-center gap-2"
+                  className="flex items-end gap-2"
                 >
                   <button
                     type="button"
                     onClick={() => setEmojiOpen(!emojiOpen)}
-                    className="p-2.5 min-h-11 min-w-11 text-slate-400 hover:text-amber-400 hover:bg-white/5 rounded-xl transition flex items-center justify-center"
-                    title="Insert Emoji"
+                    className="p-2.5 min-h-11 min-w-11 text-[#8696a0] hover:text-[#e9edef] rounded-full flex items-center justify-center"
                   >
-                    <Smile className="size-5" />
+                    <Smile className="size-6" />
                   </button>
-                  <div className="relative flex-1">
-                    <input
-                      value={draft}
-                      onChange={(e) => setDraft(e.target.value)}
-                      type="text"
-                      inputMode="text"
-                      enterKeyHint="send"
-                      placeholder="Type a message across platform..."
-                      autoComplete="off"
-                      disabled={isSending}
-                      className="w-full glass-card text-base sm:text-sm rounded-xl pl-4 pr-10 py-3 min-h-11 text-white placeholder-slate-500 border border-white/10 focus:outline-none focus:border-indigo-500 disabled:opacity-60"
-                    />
-                  </div>
+                  <input
+                    value={draft}
+                    onChange={(e) => setDraft(e.target.value)}
+                    type="text"
+                    inputMode="text"
+                    enterKeyHint="send"
+                    placeholder="Type a message"
+                    autoComplete="off"
+                    disabled={isSending}
+                    className="flex-1 bg-[#2a3942] text-[15px] rounded-lg px-3 py-2.5 min-h-11 text-[#e9edef] placeholder-[#8696a0] border-0 focus:outline-none disabled:opacity-60"
+                  />
                   <button
                     type="submit"
                     disabled={isSending || !draft.trim()}
-                    className="bg-indigo-600 hover:bg-indigo-500 text-white w-12 h-12 min-h-12 rounded-xl flex items-center justify-center transition shadow-lg shadow-indigo-600/30 active:scale-95 shrink-0 disabled:opacity-50 touch-manipulation"
+                    className="bg-[#00a884] hover:bg-[#06cf9c] text-[#111b21] w-12 h-12 min-h-12 rounded-full flex items-center justify-center transition active:scale-95 shrink-0 disabled:opacity-40 touch-manipulation"
                   >
                     {isSending ? (
-                      <RefreshCw className="size-4 animate-spin" />
+                      <RefreshCw className="size-5 animate-spin" />
                     ) : (
-                      <Send className="size-4" />
+                      <Send className="size-5" />
                     )}
                   </button>
                 </form>
@@ -630,31 +550,23 @@ function BridgeBanner() {
 
   if (activeContact.platform === "pulse") {
     return (
-      <div className="px-4 py-2.5 text-xs flex items-center justify-between bg-indigo-500/15 border-b border-indigo-500/25 text-indigo-100 shrink-0 gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="w-2 h-2 rounded-full bg-indigo-400 animate-pulse shrink-0" />
-          <span className="leading-snug">
-            <strong>Pulse↔Pulse:</strong> Messages go to{" "}
-            {activeContact.peerEmail || activeContact.handle}. They appear when
-            that person signs into PulseChat with the same email.
-          </span>
-        </div>
+      <div className="px-3 py-1.5 text-[11px] flex items-center justify-center bg-[#182229] border-b border-[#222d34] text-[#8696a0] shrink-0">
+        <span>
+          Pulse↔Pulse with{" "}
+          <strong className="text-[#e9edef]">
+            {activeContact.peerEmail || activeContact.handle}
+          </strong>
+        </span>
       </div>
     );
   }
 
   if (activeContact.platform === "whatsapp") {
     return (
-      <div className="px-4 py-2.5 text-xs flex items-center justify-between bg-emerald-500/15 border-b border-emerald-500/25 text-emerald-100 shrink-0 gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0" />
-          <span className="leading-snug">
-            <strong>Real WhatsApp:</strong> PulseChat opens WhatsApp on{" "}
-            <em>your</em> phone with the message. {activeContact.name} only
-            receives it after you tap <strong>Send</strong> in WhatsApp (
-            {activeContact.phone}).
-          </span>
-        </div>
+      <div className="px-3 py-1.5 text-[11px] flex items-center justify-between gap-2 bg-[#182229] border-b border-[#222d34] text-[#8696a0] shrink-0">
+        <span className="truncate">
+          Opens WhatsApp for {activeContact.phone} — tap Send there
+        </span>
         <button
           type="button"
           onClick={() => {
@@ -663,13 +575,11 @@ function BridgeBanner() {
               activeContact.phone || activeContact.handle,
               "",
             );
-            showToast(
-              r.ok ? "Opening WhatsApp chat…" : r.error,
-            );
+            showToast(r.ok ? "Opening WhatsApp…" : r.error);
           }}
-          className="font-bold underline text-white hover:text-emerald-200 shrink-0"
+          className="font-bold text-[#00a884] shrink-0"
         >
-          Open WhatsApp
+          Open
         </button>
       </div>
     );
@@ -677,16 +587,8 @@ function BridgeBanner() {
 
   if (activeContact.platform === "telegram") {
     return (
-      <div className="px-4 py-2.5 text-xs flex items-center justify-between bg-sky-500/15 border-b border-sky-500/25 text-sky-100 shrink-0 gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="w-2 h-2 rounded-full bg-sky-400 shrink-0" />
-          <span className="leading-snug">
-            <strong>Real Telegram:</strong> Send opens Telegram for{" "}
-            {activeContact.handle || activeContact.phone}. Your text is copied —
-            paste and tap Send in Telegram so they receive it. Simulator replies
-            are fake.
-          </span>
-        </div>
+      <div className="px-3 py-1.5 text-[11px] flex items-center justify-between gap-2 bg-[#182229] border-b border-[#222d34] text-[#8696a0] shrink-0">
+        <span className="truncate">Opens Telegram to deliver</span>
         <button
           type="button"
           onClick={() => {
@@ -697,9 +599,9 @@ function BridgeBanner() {
             );
             showToast(r.ok ? "Opening Telegram…" : r.error);
           }}
-          className="font-bold underline text-white hover:text-sky-200 shrink-0"
+          className="font-bold text-[#00a884] shrink-0"
         >
-          Open Telegram
+          Open
         </button>
       </div>
     );
@@ -707,34 +609,21 @@ function BridgeBanner() {
 
   if (activeContact.platform === "sms") {
     return (
-      <div className="px-4 py-2 text-xs flex items-center justify-between bg-teal-500/15 border-b border-teal-500/25 text-teal-200 shrink-0 gap-2">
-        <div className="flex items-center gap-2 min-w-0">
-          <span className="w-2 h-2 rounded-full bg-teal-400 shrink-0" />
-          <span className="truncate">
-            <strong>Real SMS:</strong> Send opens your phone&apos;s Messages app
-            for {activeContact.phone}. Tap Send there to deliver.
-          </span>
-        </div>
+      <div className="px-3 py-1.5 text-[11px] text-center bg-[#182229] border-b border-[#222d34] text-[#8696a0] shrink-0">
+        Opens Messages for {activeContact.phone}
       </div>
     );
   }
 
   return (
-    <div className="px-4 py-2 text-xs flex items-center justify-between bg-amber-500/15 border-b border-amber-500/25 text-amber-200 shrink-0 gap-2">
-      <div className="flex items-center gap-2 min-w-0">
-        <AlertTriangle className="size-3.5 text-amber-400 shrink-0" />
-        <span className="truncate">
-          <strong>{activeContact.platformName}:</strong> messages stay in
-          PulseChat for now (no live API). Simulator replies are fake and only
-          for UI demos.
-        </span>
-      </div>
+    <div className="px-3 py-1.5 text-[11px] flex items-center justify-between gap-2 bg-[#182229] border-b border-[#222d34] text-[#8696a0] shrink-0">
+      <span className="truncate">{activeContact.platformName} · saved in Pulse</span>
       <button
         type="button"
         onClick={openSimulator}
-        className="font-bold underline text-amber-300 hover:text-white shrink-0"
+        className="font-bold text-[#00a884] shrink-0"
       >
-        Simulator
+        Demo
       </button>
     </div>
   );

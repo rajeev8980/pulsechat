@@ -258,10 +258,10 @@ export function PulseProvider({ children }: { children: ReactNode }) {
                 typeof window !== "undefined"
                   ? new URLSearchParams(window.location.search).get("screen")
                   : null;
-              setScreen(
-                wanted === "chat" && first ? "chat" : "discovery",
-              );
-              if (wanted === "chat") setMobileSidebarOpen(true);
+              // Always open like WhatsApp: chats list first
+              setScreen("chat");
+              setMobileSidebarOpen(true);
+              if (wanted === "discovery") setScreen("discovery");
             }
           } catch {
             // Session exists but hydration failed — land on discovery empty rather than hang
@@ -318,7 +318,9 @@ export function PulseProvider({ children }: { children: ReactNode }) {
                   : " — fetch phonebook to see who's available")
             : `Signed in — stay logged in until you sign out`,
         );
-        setScreen("discovery");
+        // Open like WhatsApp — chats list first
+        setScreen("chat");
+        setMobileSidebarOpen(true);
         // Android/Chrome: prompt immediately so one tap auto-opens Contact Picker
         if (list.length === 0) {
           setContactFetchPrompt(true);
