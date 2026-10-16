@@ -48,30 +48,30 @@ export function ContactFetchModal() {
         <div className="w-14 h-14 rounded-2xl bg-emerald-600/20 border border-emerald-500/40 flex items-center justify-center mb-4">
           <Smartphone className="size-7 text-emerald-400" />
         </div>
-        <h3
-          id="contact-fetch-title"
-          className="text-xl font-extrabold text-white"
-        >
-          Auto-fetch your contacts
-        </h3>
-        <p className="text-sm text-slate-400 mt-2">
-          {deviceSync
-            ? "Select contacts from your phonebook — we pull mobiles and show who is on PulseChat."
-            : "Open contacts to paste Name, email, phone lines, or use Chrome on Android."}
-        </p>
-        <button
-          type="button"
-          disabled={isSyncing || openingPaste}
-          onClick={() => void onFetch()}
-          className="mt-5 w-full px-4 py-3.5 min-h-12 rounded-xl bg-[#00a884] hover:bg-[#06cf9c] disabled:opacity-60 text-[#0b141a] text-sm font-bold flex items-center justify-center gap-2"
-        >
-          {isSyncing ? (
-            <Loader2 className="size-4 animate-spin" />
-          ) : (
-            <Smartphone className="size-4" />
-          )}
-          {deviceSync ? "Fetch my contacts now" : "Open contacts"}
-        </button>
+            <h3
+              id="contact-fetch-title"
+              className="text-xl font-extrabold text-white"
+            >
+              Load all contacts into PulseChat
+            </h3>
+            <p className="text-sm text-slate-400 mt-2">
+              {deviceSync
+                ? "One step: phonebook opens — tap Select all (or multi-select), then Confirm. Contacts stay in PulseChat; no manual sync later."
+                : "Use Chrome on Android for one-tap phonebook load, or paste contacts."}
+            </p>
+            <button
+              type="button"
+              disabled={isSyncing || openingPaste}
+              onClick={() => void onFetch()}
+              className="mt-5 w-full px-4 py-3.5 min-h-12 rounded-xl bg-[#00a884] hover:bg-[#06cf9c] disabled:opacity-60 text-[#0b141a] text-sm font-bold flex items-center justify-center gap-2"
+            >
+              {isSyncing ? (
+                <Loader2 className="size-4 animate-spin" />
+              ) : (
+                <Smartphone className="size-4" />
+              )}
+              {deviceSync ? "Load all contacts" : "Open contacts"}
+            </button>
       </div>
     </div>
   );

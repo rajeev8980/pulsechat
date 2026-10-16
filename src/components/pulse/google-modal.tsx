@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { canPickDeviceContacts } from "@/lib/device-contacts";
 import { usePulse } from "./pulse-context";
 
 function GoogleMark({ className }: { className?: string }) {
@@ -36,14 +37,17 @@ export function GoogleModal() {
     closeGoogleModal,
     login,
     isLoggingIn,
+    showToast,
   } = usePulse();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [loadingContacts, setLoadingContacts] = useState(false);
+  const deviceSync = useMemo(() => canPickDeviceContacts(), []);
 
   if (!googleModalOpen) return null;
 
-  function submit() {
+  async function submit() {
     const trimmedEmail = email.trim();
     const trimmedName = name.trim();
     const trimmedPhone = phone.trim();
@@ -54,18 +58,57 @@ export function GoogleModal() {
         .split("@")[0]
         .replace(/[._]/g, " ")
         .replace(/\b\w/g, (c) => c.toUpperCase());
-    login({
+
+    const user = {
       name: display,
       email: trimmedEmail,
       phone: trimmedPhone || undefined,
       avatar: `https://api.dicebear.com/9.x/initials/svg?seed=${encodeURIComponent(display)}&backgroundColor=4f46e5`,
-    });
+    };
+
+    // Pick phonebook FIRST while the Continue tap still counts as a user gesture.
+    // Android never allows a silent dump — but this removes a separate Sync step.
+    let phonebook:
+      | Array<{ name?: string; email?: string; phone?: string }>
+      | undefined;
+    let phonebookMeta: { withEmail?: number; phoneOnly?: number } | undefined;
+
+    if (deviceSync) {
+      setLoadingContacts(true);
+      try {
+        const { pickDeviceContacts } = await import("@/lib/device-contacts");
+        const picked = await pickDeviceContacts();
+        phonebook = picked.drafts;
+        phonebookMeta = {
+          withEmail: picked.withEmail,
+          phoneOnly: picked.phoneOnly,
+        };
+        if (picked.drafts.length === 0) {
+          showToast(
+            picked.selected > 0
+              ? "Selected contacts had no phone/email — you can add them later"
+              : "No contacts selected — you can load them later from +",
+          );
+        }
+      } catch (e) {
+        const msg = e instanceof Error ? e.message : "";
+        if (!/cancel|abort/i.test(msg)) {
+          showToast(msg || "Could not open phonebook");
+        }
+      } finally {
+        setLoadingContacts(false);
+      }
+    }
+
+    login(user, { phonebook, phonebookMeta });
   }
+
+  const busy = isLoggingIn || loadingContacts;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/75 backdrop-blur-sm">
       <div
-        className="glass-panel w-full max-w-sm rounded-3xl p-6 border border-white/15 shadow-2xl relative text-slate-100"
+        className="w-full max-w-sm rounded-3xl p-6 border border-[#222d34] shadow-2xl relative text-slate-100 bg-[#1f2c34]"
         role="dialog"
         aria-modal="true"
         aria-labelledby="google-modal-title"
@@ -75,6 +118,7 @@ export function GoogleModal() {
           onClick={closeGoogleModal}
           className="absolute top-4 right-4 text-slate-400 hover:text-white p-1"
           aria-label="Close"
+          disabled={busy}
         >
           <X className="size-4" />
         </button>
@@ -89,24 +133,31 @@ export function GoogleModal() {
               {googleIntent === "signup" ? "Create your account" : "Sign in"}
             </h3>
             <p className="text-[11px] text-slate-400">
-              Continue to{" "}
-              <strong className="text-indigo-400">PulseChat</strong> — email +
-              mobile so friends can find you
+              {deviceSync
+                ? "Continue loads your phone contacts into PulseChat automatically"
+                : "Continue to PulseChat — contacts stay on this device after first load"}
             </p>
           </div>
         </div>
 
-        {isLoggingIn ? (
+        {busy ? (
           <div className="py-10 text-center space-y-3">
-            <div className="mx-auto w-8 h-8 rounded-full border-2 border-indigo-400 border-t-transparent animate-spin" />
-            <p className="text-sm text-slate-300">Setting up your inbox…</p>
+            <div className="mx-auto w-8 h-8 rounded-full border-2 border-[#00a884] border-t-transparent animate-spin" />
+            <p className="text-sm text-slate-300">
+              {loadingContacts
+                ? "Select contacts in the phone picker…"
+                : "Opening your chats…"}
+            </p>
+            <p className="text-[11px] text-slate-500 px-4">
+              Tip: in the picker, tap Select all if available — then Confirm.
+            </p>
           </div>
         ) : (
           <form
             className="space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
-              submit();
+              void submit();
             }}
           >
             <div>
@@ -118,7 +169,7 @@ export function GoogleModal() {
                 onChange={(e) => setName(e.target.value)}
                 placeholder="Your name"
                 autoComplete="name"
-                className="w-full glass-card text-sm rounded-xl px-3 py-2.5 h-auto min-h-11 text-white border-white/10 bg-transparent"
+                className="w-full bg-[#111b21] text-sm rounded-xl px-3 py-2.5 h-auto min-h-11 text-white border-[#222d34]"
               />
             </div>
             <div>
@@ -132,13 +183,13 @@ export function GoogleModal() {
                 placeholder="you@email.com"
                 autoComplete="email"
                 required
-                className="w-full glass-card text-sm rounded-xl px-3 py-2.5 h-auto min-h-11 text-white border-white/10 bg-transparent"
+                className="w-full bg-[#111b21] text-sm rounded-xl px-3 py-2.5 h-auto min-h-11 text-white border-[#222d34]"
               />
             </div>
             <div>
               <label className="text-[11px] text-slate-400 block mb-1.5">
                 Mobile number{" "}
-                <span className="text-slate-500">(so contacts find you)</span>
+                <span className="text-slate-500">(so friends find you)</span>
               </label>
               <Input
                 type="tel"
@@ -147,18 +198,21 @@ export function GoogleModal() {
                 onChange={(e) => setPhone(e.target.value)}
                 placeholder="+919334803286"
                 autoComplete="tel"
-                className="w-full glass-card text-sm rounded-xl px-3 py-2.5 h-auto min-h-11 text-white border-white/10 bg-transparent"
+                className="w-full bg-[#111b21] text-sm rounded-xl px-3 py-2.5 h-auto min-h-11 text-white border-[#222d34]"
               />
             </div>
             <Button
               type="submit"
-              className="w-full bg-indigo-600 hover:bg-indigo-500 text-sm py-3 h-auto min-h-11 rounded-xl text-white font-bold"
+              className="w-full bg-[#00a884] hover:bg-[#06cf9c] text-[#111b21] text-sm py-3 h-auto min-h-11 rounded-xl font-bold"
             >
-              Continue
+              {deviceSync
+                ? "Continue & load my contacts"
+                : "Continue to chats"}
             </Button>
             <p className="text-[10px] text-slate-500 text-center">
-              After sign-in, fetch mobiles from your phonebook — we highlight who
-              is already on PulseChat.
+              {deviceSync
+                ? "Android shows the phonebook once — choose Select all, then Confirm. Next opens keep your contacts (no re-sync)."
+                : "On Android Chrome, contacts load from your phonebook on Continue. They stay saved until you sign out."}
             </p>
           </form>
         )}

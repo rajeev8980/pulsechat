@@ -67,7 +67,14 @@ interface PulseContextValue {
   /** Shown after sign-in so one tap opens the phone contact picker */
   contactFetchPrompt: boolean;
   dismissContactFetchPrompt: () => void;
-  login: (user: User) => void;
+  login: (
+    user: User,
+    opts?: {
+      /** Contacts picked during the same Continue tap (no separate sync) */
+      phonebook?: Array<{ name?: string; email?: string; phone?: string }>;
+      phonebookMeta?: { withEmail?: number; phoneOnly?: number };
+    },
+  ) => void;
   loginCustom: (email: string) => void;
   signOut: () => void;
   resyncContacts: () => void;
@@ -297,31 +304,56 @@ export function PulseProvider({ children }: { children: ReactNode }) {
   const closeSimulator = useCallback(() => setSimulatorOpen(false), []);
 
   const login = useCallback(
-    async (next: User) => {
+    async (
+      next: User,
+      opts?: {
+        phonebook?: Array<{ name?: string; email?: string; phone?: string }>;
+        phonebookMeta?: { withEmail?: number; phoneOnly?: number };
+      },
+    ) => {
       setIsLoggingIn(true);
       setApiError(null);
+      setContactFetchPrompt(false);
       try {
         const { user: loggedIn } = await api.login(next);
         setUser(loggedIn);
-        const list = await loadContacts(loggedIn.email);
+
+        let list = await loadContacts(loggedIn.email);
+
+        // Phonebook already picked on the Continue tap → import automatically
+        if (opts?.phonebook && opts.phonebook.length > 0) {
+          try {
+            const data = await api.importContacts(opts.phonebook);
+            list = data.contacts;
+            setContacts(list);
+            saveContactsLocal(loggedIn.email, list);
+            const avail = data.availableOnPulse ?? 0;
+            showToast(
+              `Signed in · ${list.length} contacts loaded` +
+                (avail ? ` · ${avail} on PulseChat` : ""),
+            );
+          } catch (e) {
+            showToast(errMessage(e, "Signed in, but contacts failed to load"));
+          }
+        } else {
+          const onPulse = list.filter((c) => c.onPulse).length;
+          showToast(
+            list.length
+              ? `Welcome back · ${list.length} contacts` +
+                  (onPulse ? ` · ${onPulse} on PulseChat` : "")
+              : `Signed in — loading contacts…`,
+          );
+        }
+
         const first = list[0]?.id || "";
         setActiveContactId(first);
         if (first) await refreshMessages(first);
         setGoogleModalOpen(false);
         setSyncError(null);
-        const onPulse = list.filter((c) => c.onPulse).length;
-        showToast(
-          loggedIn.phone
-            ? `Signed in · mobile ${loggedIn.phone}` +
-                (onPulse
-                  ? ` · ${onPulse} contact${onPulse === 1 ? "" : "s"} on PulseChat`
-                  : " — fetch phonebook to see who's available")
-            : `Signed in — stay logged in until you sign out`,
-        );
-        // Open like WhatsApp — chats list first
+        // Open like WhatsApp — chats list with all contacts
         setScreen("chat");
         setMobileSidebarOpen(true);
-        // Android/Chrome: prompt immediately so one tap auto-opens Contact Picker
+        // Only prompt if we still have no contacts (picker cancelled / unsupported)
         if (list.length === 0) {
           setContactFetchPrompt(true);
         }
