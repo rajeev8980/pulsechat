@@ -28,7 +28,7 @@ npm run start -- -p 43127
 
 Open [http://127.0.0.1:43127](http://127.0.0.1:43127).
 
-**Live:** [https://reasonably-holiday-linux-holidays.trycloudflare.com](https://reasonably-holiday-linux-holidays.trycloudflare.com)
+**Live (permanent):** [https://pulsechat-lake-one.vercel.app](https://pulsechat-lake-one.vercel.app)
 
 ### Install on Android
 
